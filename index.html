@@ -6,9 +6,11 @@
 <meta name="theme-color" content="#0f1419">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Time tracking">
-<title>Time tracking — учёт рабочего времени</title>
-<link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlTDtsO2dHVubmlkIiwKICAic2hvcnRfbmFtZSI6ICJUw7bDtnR1bm5pZCIsCiAgInN0YXJ0X3VybCI6ICIuLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTQxOSIsCiAgInRoZW1lX2NvbG9yIjogIiMwZjE0MTkiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDE5MiAxOTInJTNFJTNDcmVjdCB3aWR0aD0nMTkyJyBoZWlnaHQ9JzE5MicgZmlsbD0nIzBmMTQxOScvJTNFJTNDdGV4dCB4PSc5NicgeT0nMTI4JyBmb250LXNpemU9JzExMCcgdGV4dC1hbmNob3I9J21pZGRsZScgZmlsbD0nIzU0YjU3OCclM0XigJ8lM0MvdGV4dCUzRSUzQy9zdmclM0U=IiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQ==">
+<meta name="apple-mobile-web-app-title" content="TLT">
+<title>TLT Tracker — учёт рабочего времени</title>
+<link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlRMVCBUcmFja2VyIiwKICAic2hvcnRfbmFtZSI6ICJUTFQiLAogICJzdGFydF91cmwiOiAiLi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwZjE0MTkiLAogICJ0aGVtZV9jb2xvciI6ICIjMGYxNDE5IiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLDxzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMTkyIDE5Mic+PHJlY3Qgd2lkdGg9JzE5MicgaGVpZ2h0PScxOTInIHJ4PSc0NCcgcnk9JzQ0JyBmaWxsPSclMjMwZjE0MTknLz48dGV4dCB4PSc5NicgeT0nOTYnIGZvbnQtZmFtaWx5PSctYXBwbGUtc3lzdGVtLEJsaW5rTWFjU3lzdGVtRm9udCxzeXN0ZW0tdWksc2Fucy1zZXJpZicgZm9udC1zaXplPSc2OCcgZm9udC13ZWlnaHQ9JzcwMCcgZmlsbD0nJTIzNTRiNTc4JyB0ZXh0LWFuY2hvcj0nbWlkZGxlJyBkb21pbmFudC1iYXNlbGluZT0nY2VudHJhbCcgbGV0dGVyLXNwYWNpbmc9Jy0yJz5UTFQ8L3RleHQ+PC9zdmc+IiwKICAgICAgInNpemVzIjogIjE5MngxOTIgNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiLAogICAgICAicHVycG9zZSI6ICJhbnkiCiAgICB9CiAgXQp9">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='44' ry='44' fill='%230f1419'/%3E%3Ctext x='96' y='96' font-family='-apple-system,BlinkMacSystemFont,system-ui,sans-serif' font-size='68' font-weight='700' fill='%2354b578' text-anchor='middle' dominant-baseline='central' letter-spacing='-2'%3ETLT%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='44' ry='44' fill='%230f1419'/%3E%3Ctext x='96' y='96' font-family='-apple-system,BlinkMacSystemFont,system-ui,sans-serif' font-size='68' font-weight='700' fill='%2354b578' text-anchor='middle' dominant-baseline='central' letter-spacing='-2'%3ETLT%3C/text%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #0f1419;
@@ -478,7 +480,7 @@
 
 <div class="app">
   <div class="header">
-    <h1>Учет рабочего времени TLT</h1>
+    <h1>TLT Tracker</h1>
     <div class="header-info" id="header-info">—</div>
   </div>
 
@@ -1107,7 +1109,7 @@ function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'tlt_time_tracking.csv';
+  a.download = 'tlt-tracker.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
