@@ -435,24 +435,6 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
 
-  .file-input { display: none; }
-
-  .ocr-progress {
-    height: 4px;
-    background: var(--bg-input);
-    border-radius: 2px;
-    margin-top: 12px;
-    overflow: hidden;
-    display: none;
-  }
-  .ocr-progress.show { display: block; }
-  .ocr-progress-bar {
-    height: 100%;
-    background: var(--accent);
-    width: 0%;
-    transition: width 0.3s;
-  }
-
   .install-hint {
     background: rgba(107, 163, 214, 0.08);
     border: 1px solid rgba(107, 163, 214, 0.2);
@@ -580,12 +562,6 @@
     <div class="toolbar">
       <button class="btn btn-primary" id="add-shift-btn">+ Смена</button>
       <button class="btn" id="paste-btn">📋 Вставить график</button>
-      <button class="btn" id="ocr-btn">📷 Скан графика</button>
-      <input type="file" id="file-input" class="file-input" accept="image/*">
-    </div>
-
-    <div class="ocr-progress" id="ocr-progress">
-      <div class="ocr-progress-bar" id="ocr-progress-bar"></div>
     </div>
 
     <table class="month-table">
@@ -1037,121 +1013,6 @@ function importPastedText(text) {
 }
 
 /* =========================================================
-   OCR — image to text
-   ========================================================= */
-let tesseractLoading = null;
-
-function loadScriptWithFallback(urls, timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    let attempt = 0;
-    const tryNext = () => {
-      if (attempt >= urls.length) {
-        reject(new Error('Не удалось загрузить библиотеку ни с одного CDN. Проверь интернет.'));
-        return;
-      }
-      const url = urls[attempt++];
-      const s = document.createElement('script');
-      s.src = url;
-      s.async = true;
-      const timer = setTimeout(() => {
-        s.onerror = s.onload = null;
-        s.remove();
-        console.warn('Timeout loading', url);
-        tryNext();
-      }, timeoutMs);
-      s.onload = () => { clearTimeout(timer); resolve(url); };
-      s.onerror = () => {
-        clearTimeout(timer);
-        s.remove();
-        console.warn('Failed to load', url);
-        tryNext();
-      };
-      document.head.appendChild(s);
-    };
-    tryNext();
-  });
-}
-
-async function loadTesseract() {
-  if (window.Tesseract) return;
-  if (tesseractLoading) return tesseractLoading;
-  tesseractLoading = loadScriptWithFallback([
-    'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
-    'https://unpkg.com/tesseract.js@5.1.1/dist/tesseract.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js'
-  ]).then(() => {
-    if (!window.Tesseract) throw new Error('Скрипт загрузился, но Tesseract не определился');
-  }).catch(err => {
-    tesseractLoading = null;
-    throw err;
-  });
-  return tesseractLoading;
-}
-
-async function runOCR(file) {
-  const progressEl = document.getElementById('ocr-progress');
-  const barEl = document.getElementById('ocr-progress-bar');
-  progressEl.classList.add('show');
-  barEl.style.width = '3%';
-  let stage = 'init';
-
-  try {
-    stage = 'load-library';
-    showToast('Загружаю библиотеку…');
-    barEl.style.width = '8%';
-    await loadTesseract();
-
-    stage = 'create-worker';
-    barEl.style.width = '20%';
-    showToast('Готовлю распознавание…');
-
-    const worker = await window.Tesseract.createWorker('eng', 1, {
-      logger: (m) => {
-        if (m.status === 'loading tesseract core') barEl.style.width = '25%';
-        else if (m.status === 'initializing tesseract') barEl.style.width = '35%';
-        else if (m.status === 'loading language traineddata') {
-          barEl.style.width = (40 + (m.progress || 0) * 20) + '%';
-        }
-        else if (m.status === 'initializing api') barEl.style.width = '65%';
-        else if (m.status === 'recognizing text') {
-          barEl.style.width = (70 + (m.progress || 0) * 28) + '%';
-        }
-      }
-    });
-
-    stage = 'recognize';
-    showToast('Распознаю текст…');
-    const result = await worker.recognize(file);
-    await worker.terminate();
-
-    barEl.style.width = '100%';
-    const text = (result && result.data && result.data.text) || '';
-
-    setTimeout(() => progressEl.classList.remove('show'), 500);
-
-    if (!text.trim()) {
-      showToast('Текст не найден на картинке');
-      return;
-    }
-
-    document.getElementById('paste-text').value = text;
-    document.getElementById('modal-paste').classList.add('show');
-    showToast('Проверь распознанный текст');
-  } catch (e) {
-    console.error('OCR error at stage:', stage, e);
-    progressEl.classList.remove('show');
-    const msg = (e && e.message) ? e.message : String(e);
-    const stageNames = {
-      'load-library': 'загрузка библиотеки',
-      'create-worker': 'инициализация',
-      'recognize': 'распознавание'
-    };
-    const stageRu = stageNames[stage] || stage;
-    showToast('Ошибка: ' + stageRu + ' — ' + msg.slice(0, 80), 5000);
-  }
-}
-
-/* =========================================================
    CSV EXPORT
    ========================================================= */
 function exportCSV() {
@@ -1264,15 +1125,6 @@ document.getElementById('paste-import').addEventListener('click', () => {
   if (!text.trim()) { showToast('Поле пустое'); return; }
   importPastedText(text);
   document.getElementById('modal-paste').classList.remove('show');
-});
-
-document.getElementById('ocr-btn').addEventListener('click', () => {
-  document.getElementById('file-input').click();
-});
-document.getElementById('file-input').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) runOCR(file);
-  e.target.value = '';
 });
 
 document.getElementById('export-btn').addEventListener('click', exportCSV);
