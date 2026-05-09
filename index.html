@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Time tracking">
+<title>Time tracking — учёт рабочего времени</title>
+<link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlTDtsO2dHVubmlkIiwKICAic2hvcnRfbmFtZSI6ICJUw7bDtnR1bm5pZCIsCiAgInN0YXJ0X3VybCI6ICIuLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTQxOSIsCiAgInRoZW1lX2NvbG9yIjogIiMwZjE0MTkiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDE5MiAxOTInJTNFJTNDcmVjdCB3aWR0aD0nMTkyJyBoZWlnaHQ9JzE5MicgZmlsbD0nIzBmMTQxOScvJTNFJTNDdGV4dCB4PSc5NicgeT0nMTI4JyBmb250LXNpemU9JzExMCcgdGV4dC1hbmNob3I9J21pZGRsZScgZmlsbD0nIzU0YjU3OCclM0XigJ8lM0MvdGV4dCUzRSUzQy9zdmclM0U=IiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQ==">
+<style>
+  :root {
+    --bg: #0f1419;
+    --bg-elevated: #1a2129;
+    --bg-input: #232c36;
+    --border: #2d3742;
+    --border-soft: #1f2730;
+    --text: #e8ecef;
+    --text-dim: #8a96a3;
+    --text-faint: #5a6573;
+    --accent: #54b578;
+    --accent-dim: #2d6b48;
+    --danger: #d97757;
+    --warning: #d4a543;
+    --info: #6ba3d6;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4px 16px;
+  }
+  .header h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .header-info {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-elevated);
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab.active {
+    background: var(--bg-input);
+    color: var(--text);
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Today view */
+  .today-card {
+    background: var(--bg-elevated);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+  .today-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .today-elapsed {
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .today-status {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .today-status.active { color: var(--accent); }
+
+  /* Action buttons */
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    min-height: 64px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.12s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .action:active {
+    transform: scale(0.97);
+    background: var(--bg-input);
+  }
+  .action.done {
+    background: rgba(84, 181, 120, 0.08);
+    border-color: rgba(84, 181, 120, 0.3);
+  }
+  .action.done .action-icon { color: var(--accent); }
+  .action-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .action-icon svg { width: 22px; height: 22px; }
+  .action-body { display: flex; flex-direction: column; min-width: 0; }
+  .action-label {
+    font-weight: 500;
+    font-size: 14px;
+  }
+  .action-time {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .action.done .action-time {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Stats grid */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .stat {
+    background: var(--bg-elevated);
+    padding: 12px;
+    border-radius: 10px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-value.pos { color: var(--accent); }
+  .stat-value.neg { color: var(--danger); }
+
+  /* Manual edit panel */
+  details {
+    background: var(--bg-elevated);
+    border-radius: 12px;
+    padding: 0;
+    margin-bottom: 12px;
+  }
+  summary {
+    padding: 14px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-dim);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after {
+    content: '›';
+    transform: rotate(90deg);
+    transition: transform 0.2s;
+    font-size: 18px;
+  }
+  details[open] summary::after { transform: rotate(-90deg); }
+  .edit-grid {
+    padding: 0 16px 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .edit-grid label {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  input[type="time"], input[type="date"], input[type="text"], input[type="number"] {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  input:focus { outline: 2px solid var(--accent-dim); outline-offset: -1px; border-color: var(--accent); }
+
+  /* Month view */
+  .month-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .month-nav button {
+    background: var(--bg-elevated);
+    border: none;
+    color: var(--text);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .month-nav button:hover { background: var(--bg-input); }
+  .month-title {
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: var(--bg-input); }
+  .btn-primary { background: var(--accent); color: #0a1410; border-color: var(--accent); font-weight: 500; }
+  .btn-primary:hover { background: #6cc88c; }
+  .btn-danger { color: var(--danger); }
+  .btn svg { width: 14px; height: 14px; }
+
+  .month-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .month-table th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--text-dim);
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .month-table td {
+    padding: 10px 6px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .month-table tr.today td { background: rgba(84, 181, 120, 0.05); }
+  .month-table tr:hover td { background: var(--bg-elevated); cursor: pointer; }
+  .month-table .num { text-align: right; }
+  .month-table .dim { color: var(--text-dim); }
+  .month-table .pos { color: var(--accent); }
+  .month-table .neg { color: var(--danger); }
+  .day-cell { display: flex; flex-direction: column; }
+  .day-num { font-weight: 500; }
+  .day-name { font-size: 11px; color: var(--text-dim); }
+  .day-empty { color: var(--text-faint); }
+
+  /* Stats view */
+  .stat-big {
+    background: var(--bg-elevated);
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+  }
+  .stat-big .stat-value { font-size: 24px; }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 100;
+    padding: 0;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--bg-elevated);
+    border-radius: 16px 16px 0 0;
+    padding: 24px 20px max(20px, env(safe-area-inset-bottom));
+    width: 100%;
+    max-width: 640px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease-out;
+  }
+  @media (min-width: 640px) {
+    .modal-backdrop { align-items: center; padding: 16px; }
+    .modal { border-radius: 16px; }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal h3 {
+    margin: 0 0 16px;
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .modal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .modal-actions .btn { flex: 1; justify-content: center; padding: 12px; }
+
+  textarea {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    min-height: 200px;
+    resize: vertical;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: transform 0.25s ease-out;
+    z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .file-input { display: none; }
+
+  .ocr-progress {
+    height: 4px;
+    background: var(--bg-input);
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+    display: none;
+  }
+  .ocr-progress.show { display: block; }
+  .ocr-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  .install-hint {
+    background: rgba(107, 163, 214, 0.08);
+    border: 1px solid rgba(107, 163, 214, 0.2);
+    color: var(--info);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .install-hint.show { display: flex; }
+  .install-hint button {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1>Töötunnid</h1>
+    <div class="header-info" id="header-info">—</div>
+  </div>
+
+  <div class="install-hint" id="install-hint">
+    <span>📱 Добавь на главный экран — будет как приложение</span>
+    <button id="dismiss-install">✕</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="today">Сегодня</button>
+    <button class="tab" data-view="month">Месяц</button>
+    <button class="tab" data-view="stats">Итоги</button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="view active" id="view-today">
+    <div class="today-card">
+      <div class="today-meta">
+        <span id="today-date">—</span>
+        <span>план <span id="today-plan" style="color: var(--text); font-weight: 500;">—</span></span>
+      </div>
+      <div class="today-elapsed" id="today-elapsed">00:00</div>
+      <div class="today-status" id="today-status">Ещё не начат</div>
+    </div>
+
+    <div class="actions">
+      <button class="action" data-event="start">
+        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg></span>
+        <span class="action-body">
+          <span class="action-label">Начать смену</span>
+          <span class="action-time" id="time-start">—</span>
+        </span>
+      </button>
+      <button class="action" data-event="lunchIn">
+        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></span>
+        <span class="action-body">
+          <span class="action-label">На обед</span>
+          <span class="action-time" id="time-lunchIn">—</span>
+        </span>
+      </button>
+      <button class="action" data-event="lunchOut">
+        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 4 4v2"/></svg></span>
+        <span class="action-body">
+          <span class="action-label">С обеда</span>
+          <span class="action-time" id="time-lunchOut">—</span>
+        </span>
+      </button>
+      <button class="action" data-event="end">
+        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg></span>
+        <span class="action-body">
+          <span class="action-label">Закончить</span>
+          <span class="action-time" id="time-end">—</span>
+        </span>
+      </button>
+    </div>
+
+    <details>
+      <summary>Подправить время вручную</summary>
+      <div class="edit-grid">
+        <label>Старт<input type="time" id="edit-start"></label>
+        <label>На обед<input type="time" id="edit-lunchIn"></label>
+        <label>С обеда<input type="time" id="edit-lunchOut"></label>
+        <label>Конец<input type="time" id="edit-end"></label>
+      </div>
+    </details>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Отработано</div>
+        <div class="stat-value" id="stat-worked">00:00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Обед</div>
+        <div class="stat-value" id="stat-lunch">00:00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Δ к плану</div>
+        <div class="stat-value" id="stat-delta">—</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px; font-size: 12px; color: var(--text-faint); text-align: center;">
+      <span id="reset-link" style="cursor: pointer; text-decoration: underline; text-decoration-style: dotted;">Сбросить сегодняшнюю запись</span>
+    </div>
+  </div>
+
+  <!-- MONTH -->
+  <div class="view" id="view-month">
+    <div class="month-header">
+      <div class="month-nav">
+        <button id="prev-month">‹</button>
+        <span class="month-title" id="month-title">—</span>
+        <button id="next-month">›</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" id="add-shift-btn">+ Смена</button>
+      <button class="btn" id="paste-btn">📋 Вставить график</button>
+      <button class="btn" id="ocr-btn">📷 Скан графика</button>
+      <input type="file" id="file-input" class="file-input" accept="image/*">
+    </div>
+
+    <div class="ocr-progress" id="ocr-progress">
+      <div class="ocr-progress-bar" id="ocr-progress-bar"></div>
+    </div>
+
+    <table class="month-table">
+      <thead>
+        <tr>
+          <th>День</th>
+          <th class="num">План</th>
+          <th class="num">Старт</th>
+          <th class="num">Конец</th>
+          <th class="num">Факт</th>
+          <th class="num">Δ</th>
+        </tr>
+      </thead>
+      <tbody id="month-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- STATS -->
+  <div class="view" id="view-stats">
+    <div class="stat-big">
+      <div class="stat-label">План месяца</div>
+      <div class="stat-value" id="m-plan">—</div>
+    </div>
+    <div class="stat-big">
+      <div class="stat-label">Отработано</div>
+      <div class="stat-value" id="m-worked">—</div>
+    </div>
+    <div class="stat-big">
+      <div class="stat-label">Δ к плану (за уже отработанные дни)</div>
+      <div class="stat-value" id="m-delta">—</div>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Дней отраб.</div>
+        <div class="stat-value" id="m-days">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Средняя смена</div>
+        <div class="stat-value" id="m-avg">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Подработки</div>
+        <div class="stat-value" id="m-extra">—</div>
+      </div>
+    </div>
+    <div style="margin-top: 16px;">
+      <button class="btn" id="export-btn">⬇ Экспорт CSV</button>
+      <button class="btn btn-danger" id="clear-btn">⚠ Очистить всё</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-backdrop" id="modal-shift">
+  <div class="modal">
+    <h3 id="shift-modal-title">Редактировать смену</h3>
+    <div class="modal-row">
+      <label style="flex: 1;">Дата<input type="date" id="shift-date"></label>
+    </div>
+    <div class="modal-row">
+      <label style="flex: 1;">План (часы:минуты)<input type="text" id="shift-plan" placeholder="8:00"></label>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <label>Старт<input type="time" id="shift-start"></label>
+      <label>Конец<input type="time" id="shift-end"></label>
+      <label>На обед<input type="time" id="shift-lunchIn"></label>
+      <label>С обеда<input type="time" id="shift-lunchOut"></label>
+    </div>
+    <label style="display: block; margin-top: 12px;">
+      <input type="checkbox" id="shift-extra"> подработка
+    </label>
+    <div class="modal-actions">
+      <button class="btn" id="shift-cancel">Отмена</button>
+      <button class="btn btn-danger" id="shift-delete" style="display:none;">Удалить</button>
+      <button class="btn btn-primary" id="shift-save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-paste">
+  <div class="modal">
+    <h3>Вставить график KUUGRAAFIK</h3>
+    <p style="font-size: 13px; color: var(--text-dim); margin: 0 0 12px;">
+      Скопируй текст из письма (или таблицы) и вставь сюда. Распознаются строки вида «1 Vaba päev» или «3 72 03 1 9:00».
+    </p>
+    <textarea id="paste-text" placeholder="1  Vaba päev&#10;2  Vaba päev&#10;3  72  03  1  9:00&#10;..."></textarea>
+    <div class="modal-actions">
+      <button class="btn" id="paste-cancel">Отмена</button>
+      <button class="btn btn-primary" id="paste-import">Импортировать</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   STATE & STORAGE
+   ========================================================= */
+const STORAGE_KEY = 'work-tracker-v1';
+const state = {
+  shifts: {}, // 'YYYY-MM-DD' -> { plan: '8:00', start, end, lunchIn, lunchOut, extra: bool }
+  currentMonth: null, // {y, m}
+};
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      state.shifts = data.shifts || {};
+    }
+  } catch(e) { console.warn('load failed', e); }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ shifts: state.shifts }));
+}
+
+/* =========================================================
+   TIME HELPERS
+   ========================================================= */
+function pad(n) { return String(n).padStart(2, '0'); }
+function nowTimeStr() {
+  const d = new Date();
+  return pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+function dateKey(d) {
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+function parseTime(t) {
+  if (!t) return null;
+  const m = String(t).match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return parseInt(m[1])*60 + parseInt(m[2]);
+}
+function fmtMin(min) {
+  if (min == null || isNaN(min)) return '—';
+  const sign = min < 0 ? '−' : '';
+  min = Math.abs(min);
+  const h = Math.floor(min/60);
+  const m = min % 60;
+  return sign + pad(h) + ':' + pad(m);
+}
+function fmtMinSigned(min) {
+  if (min == null || isNaN(min)) return '—';
+  const s = min >= 0 ? '+' : '−';
+  return s + pad(Math.floor(Math.abs(min)/60)) + ':' + pad(Math.abs(min)%60);
+}
+
+function workMinutes(shift) {
+  const s = parseTime(shift.start), e = parseTime(shift.end);
+  if (s == null || e == null) return null;
+  let w = e - s;
+  if (w < 0) w += 24*60; // ночная смена
+  const li = parseTime(shift.lunchIn), lo = parseTime(shift.lunchOut);
+  if (li != null && lo != null) {
+    let l = lo - li;
+    if (l < 0) l += 24*60;
+    w -= l;
+  }
+  return w;
+}
+function lunchMinutes(shift) {
+  const li = parseTime(shift.lunchIn), lo = parseTime(shift.lunchOut);
+  if (li == null || lo == null) return null;
+  let l = lo - li;
+  if (l < 0) l += 24*60;
+  return l;
+}
+
+const MONTH_NAMES_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAY_NAMES_RU = ['вс','пн','вт','ср','чт','пт','сб'];
+
+/* =========================================================
+   TODAY VIEW
+   ========================================================= */
+function getTodayShift() {
+  const k = todayKey();
+  if (!state.shifts[k]) state.shifts[k] = {};
+  return state.shifts[k];
+}
+
+function renderToday() {
+  const k = todayKey();
+  const s = state.shifts[k] || {};
+  const d = new Date();
+
+  document.getElementById('today-date').textContent =
+    d.getDate() + ' ' + MONTH_NAMES_RU[d.getMonth()].toLowerCase() + ', ' + DAY_NAMES_RU[d.getDay()];
+  document.getElementById('today-plan').textContent = s.plan || '—';
+  document.getElementById('header-info').textContent =
+    pad(d.getHours()) + ':' + pad(d.getMinutes());
+
+  ['start','lunchIn','lunchOut','end'].forEach(field => {
+    const t = s[field] || '—';
+    document.getElementById('time-' + field).textContent = t;
+    document.getElementById('edit-' + field).value = s[field] || '';
+    const btn = document.querySelector(`.action[data-event="${field}"]`);
+    btn.classList.toggle('done', !!s[field]);
+  });
+
+  const w = workMinutes(s);
+  const l = lunchMinutes(s);
+  const planMin = parseTime(s.plan);
+
+  document.getElementById('stat-worked').textContent = w != null ? fmtMin(w) : '00:00';
+  document.getElementById('stat-lunch').textContent = l != null ? fmtMin(l) : '00:00';
+
+  const deltaEl = document.getElementById('stat-delta');
+  if (w != null && planMin != null) {
+    const delta = w - planMin;
+    deltaEl.textContent = fmtMinSigned(delta);
+    deltaEl.classList.toggle('pos', delta >= 0);
+    deltaEl.classList.toggle('neg', delta < 0);
+  } else {
+    deltaEl.textContent = '—';
+    deltaEl.classList.remove('pos', 'neg');
+  }
+
+  // Elapsed display
+  const status = document.getElementById('today-status');
+  const elapsed = document.getElementById('today-elapsed');
+  if (s.start && s.end) {
+    elapsed.textContent = fmtMin(w);
+    status.textContent = 'Смена закончена';
+    status.classList.remove('active');
+  } else if (s.start) {
+    // live counter
+    const now = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const liveShift = { ...s, end: now };
+    const lw = workMinutes(liveShift);
+    const onLunch = s.lunchIn && !s.lunchOut;
+    elapsed.textContent = fmtMin(lw || 0);
+    status.textContent = onLunch ? 'На обеде' : 'В работе';
+    status.classList.add('active');
+  } else {
+    elapsed.textContent = '00:00';
+    status.textContent = 'Ещё не начат';
+    status.classList.remove('active');
+  }
+}
+
+function recordEvent(field) {
+  const k = todayKey();
+  if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
+  state.shifts[k][field] = nowTimeStr();
+  save();
+  renderToday();
+  renderMonth();
+  showToast('Записано: ' + nowTimeStr());
+}
+
+/* =========================================================
+   MONTH VIEW
+   ========================================================= */
+function setCurrentMonth(y, m) {
+  state.currentMonth = { y, m };
+  renderMonth();
+}
+
+function renderMonth() {
+  const { y, m } = state.currentMonth;
+  document.getElementById('month-title').textContent = MONTH_NAMES_RU[m] + ' ' + y;
+
+  const tbody = document.getElementById('month-tbody');
+  tbody.innerHTML = '';
+
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const todayK = todayKey();
+  let totalPlan = 0, totalWorked = 0, daysWorked = 0, planForWorkedDays = 0, extras = 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(y, m, day);
+    const k = dateKey(date);
+    const s = state.shifts[k];
+    const tr = document.createElement('tr');
+    if (k === todayK) tr.classList.add('today');
+    tr.dataset.date = k;
+
+    const dayName = DAY_NAMES_RU[date.getDay()];
+
+    if (!s) {
+      tr.innerHTML = `
+        <td><div class="day-cell"><span class="day-num day-empty">${day}</span><span class="day-name">${dayName}</span></div></td>
+        <td class="num dim">—</td>
+        <td class="num dim">—</td>
+        <td class="num dim">—</td>
+        <td class="num dim">—</td>
+        <td class="num dim">—</td>`;
+    } else {
+      const w = workMinutes(s);
+      const planMin = parseTime(s.plan);
+      if (planMin && !s.extra) totalPlan += planMin;
+      if (w != null) {
+        totalWorked += w;
+        daysWorked++;
+        if (planMin) planForWorkedDays += planMin;
+        if (s.extra) extras++;
+      }
+      const delta = (w != null && planMin) ? w - planMin : null;
+      const deltaStr = delta != null ? fmtMinSigned(delta) : '—';
+      const deltaClass = delta == null ? 'dim' : (delta >= 0 ? 'pos' : 'neg');
+      const extraMark = s.extra ? ' ⊕' : '';
+
+      tr.innerHTML = `
+        <td><div class="day-cell"><span class="day-num">${day}${extraMark}</span><span class="day-name">${dayName}</span></div></td>
+        <td class="num dim">${s.plan || '—'}</td>
+        <td class="num">${s.start || '—'}</td>
+        <td class="num">${s.end || '—'}</td>
+        <td class="num" style="font-weight:500;">${w != null ? fmtMin(w) : '—'}</td>
+        <td class="num ${deltaClass}">${deltaStr}</td>`;
+    }
+    tr.addEventListener('click', () => openShiftModal(k));
+    tbody.appendChild(tr);
+  }
+
+  // Stats view
+  document.getElementById('m-plan').textContent = fmtMin(totalPlan);
+  document.getElementById('m-worked').textContent = fmtMin(totalWorked);
+  const md = totalWorked - planForWorkedDays;
+  const mdEl = document.getElementById('m-delta');
+  mdEl.textContent = daysWorked === 0 ? '—' : fmtMinSigned(md);
+  mdEl.classList.toggle('pos', md >= 0);
+  mdEl.classList.toggle('neg', md < 0);
+  document.getElementById('m-days').textContent = daysWorked;
+  document.getElementById('m-avg').textContent = daysWorked > 0 ? fmtMin(Math.round(totalWorked / daysWorked)) : '—';
+  document.getElementById('m-extra').textContent = extras;
+}
+
+/* =========================================================
+   SHIFT MODAL
+   ========================================================= */
+let editingDate = null;
+function openShiftModal(dateK) {
+  editingDate = dateK;
+  const s = state.shifts[dateK] || {};
+  document.getElementById('shift-modal-title').textContent =
+    'Смена • ' + dateK.split('-').reverse().join('.');
+  document.getElementById('shift-date').value = dateK;
+  document.getElementById('shift-plan').value = s.plan || '';
+  document.getElementById('shift-start').value = s.start || '';
+  document.getElementById('shift-end').value = s.end || '';
+  document.getElementById('shift-lunchIn').value = s.lunchIn || '';
+  document.getElementById('shift-lunchOut').value = s.lunchOut || '';
+  document.getElementById('shift-extra').checked = !!s.extra;
+  document.getElementById('shift-delete').style.display = state.shifts[dateK] ? 'block' : 'none';
+  document.getElementById('modal-shift').classList.add('show');
+}
+function closeShiftModal() {
+  document.getElementById('modal-shift').classList.remove('show');
+  editingDate = null;
+}
+function saveShift() {
+  const newDate = document.getElementById('shift-date').value;
+  if (!newDate) { showToast('Укажи дату'); return; }
+  const data = {
+    plan: document.getElementById('shift-plan').value.trim() || null,
+    start: document.getElementById('shift-start').value || null,
+    end: document.getElementById('shift-end').value || null,
+    lunchIn: document.getElementById('shift-lunchIn').value || null,
+    lunchOut: document.getElementById('shift-lunchOut').value || null,
+    extra: document.getElementById('shift-extra').checked,
+  };
+  // remove nulls
+  Object.keys(data).forEach(k => { if (data[k] == null || data[k] === false) delete data[k]; });
+  if (editingDate && editingDate !== newDate) {
+    delete state.shifts[editingDate];
+  }
+  if (Object.keys(data).length === 0) {
+    delete state.shifts[newDate];
+  } else {
+    state.shifts[newDate] = data;
+  }
+  save();
+  closeShiftModal();
+  renderMonth();
+  renderToday();
+  showToast('Сохранено');
+}
+function deleteShift() {
+  if (editingDate && state.shifts[editingDate]) {
+    delete state.shifts[editingDate];
+    save();
+    closeShiftModal();
+    renderMonth();
+    renderToday();
+    showToast('Удалено');
+  }
+}
+
+/* =========================================================
+   IMPORT — paste text (KUUGRAAFIK format)
+   ========================================================= */
+function importPastedText(text) {
+  const { y, m } = state.currentMonth;
+  const lines = text.split('\n');
+  let imported = 0;
+
+  // Pattern A: "3 72 03 1 9:00"  → day, ?, ?, shift, hours
+  // Pattern B: "1 Vaba päev"      → day, "Vaba päev" = day off
+  // Pattern C: "3 9:00"            → day + plan hours (simplified)
+  // Pattern D: "1.05.2026 9:00"   → date + hours
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // skip header lines
+    if (/^(KUUGRAAFIK|Kuu|Liin|Vahetus|Kokku|date|plan|mobis)/i.test(trimmed)) continue;
+
+    // Pattern: dd.mm.yyyy followed by H:MM
+    let match = trimmed.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})\s+.*?(\d{1,2}):(\d{2})/);
+    if (match) {
+      const day = parseInt(match[1]);
+      const mm = parseInt(match[2]) - 1;
+      const yy = parseInt(match[3]);
+      const plan = match[4] + ':' + match[5];
+      const k = yy + '-' + pad(mm+1) + '-' + pad(day);
+      state.shifts[k] = { ...(state.shifts[k] || {}), plan };
+      imported++;
+      continue;
+    }
+
+    // Pattern: starts with day number, contains "Vaba päev" or "Reservis" → no work day, skip
+    if (/^(\d{1,2})\s+(Vaba\s*p|Vaba päev|Free)/i.test(trimmed)) {
+      continue;
+    }
+
+    // Pattern: day number followed by H:MM somewhere on the line
+    match = trimmed.match(/^(\d{1,2})\s+.*?(\d{1,2}):(\d{2})\s*$/);
+    if (match) {
+      const day = parseInt(match[1]);
+      if (day < 1 || day > 31) continue;
+      const plan = match[2] + ':' + match[3];
+      const k = y + '-' + pad(m+1) + '-' + pad(day);
+      state.shifts[k] = { ...(state.shifts[k] || {}), plan };
+      imported++;
+      continue;
+    }
+  }
+
+  save();
+  renderMonth();
+  showToast(imported > 0 ? `Импортировано: ${imported} дней` : 'Ничего не распознано');
+}
+
+/* =========================================================
+   OCR — image to text
+   ========================================================= */
+let tesseractWorker = null;
+async function loadTesseract() {
+  if (window.Tesseract) return;
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+async function runOCR(file) {
+  const progressEl = document.getElementById('ocr-progress');
+  const barEl = document.getElementById('ocr-progress-bar');
+  progressEl.classList.add('show');
+  barEl.style.width = '5%';
+
+  try {
+    showToast('Загружаю распознавание...');
+    await loadTesseract();
+    barEl.style.width = '15%';
+    showToast('Распознаю...');
+    const result = await window.Tesseract.recognize(file, 'eng', {
+      logger: (m) => {
+        if (m.status === 'recognizing text') {
+          barEl.style.width = (15 + m.progress * 80) + '%';
+        }
+      }
+    });
+    barEl.style.width = '100%';
+    const text = result.data.text;
+    setTimeout(() => progressEl.classList.remove('show'), 500);
+    // open paste modal pre-filled
+    document.getElementById('paste-text').value = text;
+    document.getElementById('modal-paste').classList.add('show');
+    showToast('Проверь распознанный текст');
+  } catch (e) {
+    console.error(e);
+    progressEl.classList.remove('show');
+    showToast('Ошибка распознавания');
+  }
+}
+
+/* =========================================================
+   CSV EXPORT
+   ========================================================= */
+function exportCSV() {
+  const rows = [['Дата','План','Старт','Конец','На обед','С обеда','Отработано','Δ','Подработка']];
+  Object.keys(state.shifts).sort().forEach(k => {
+    const s = state.shifts[k];
+    const w = workMinutes(s);
+    const planMin = parseTime(s.plan);
+    const delta = (w != null && planMin) ? w - planMin : null;
+    rows.push([
+      k,
+      s.plan || '',
+      s.start || '',
+      s.end || '',
+      s.lunchIn || '',
+      s.lunchOut || '',
+      w != null ? fmtMin(w) : '',
+      delta != null ? fmtMinSigned(delta) : '',
+      s.extra ? 'да' : ''
+    ]);
+  });
+  const csv = rows.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'tootunnid.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* =========================================================
+   UI WIRING
+   ========================================================= */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function switchView(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => switchView(t.dataset.view));
+});
+
+document.querySelectorAll('.action').forEach(btn => {
+  btn.addEventListener('click', () => recordEvent(btn.dataset.event));
+});
+
+['start','lunchIn','lunchOut','end'].forEach(field => {
+  document.getElementById('edit-' + field).addEventListener('change', (ev) => {
+    const k = todayKey();
+    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
+    if (ev.target.value) {
+      state.shifts[k][field] = ev.target.value;
+    } else {
+      delete state.shifts[k][field];
+    }
+    save();
+    renderToday();
+    renderMonth();
+  });
+});
+
+document.getElementById('reset-link').addEventListener('click', () => {
+  if (confirm('Сбросить запись за сегодня?')) {
+    delete state.shifts[todayKey()];
+    save();
+    renderToday();
+    renderMonth();
+  }
+});
+
+document.getElementById('prev-month').addEventListener('click', () => {
+  const { y, m } = state.currentMonth;
+  setCurrentMonth(m === 0 ? y-1 : y, m === 0 ? 11 : m-1);
+});
+document.getElementById('next-month').addEventListener('click', () => {
+  const { y, m } = state.currentMonth;
+  setCurrentMonth(m === 11 ? y+1 : y, m === 11 ? 0 : m+1);
+});
+
+document.getElementById('add-shift-btn').addEventListener('click', () => {
+  const { y, m } = state.currentMonth;
+  const k = y + '-' + pad(m+1) + '-' + pad(new Date().getDate());
+  openShiftModal(k);
+});
+
+document.getElementById('shift-cancel').addEventListener('click', closeShiftModal);
+document.getElementById('shift-save').addEventListener('click', saveShift);
+document.getElementById('shift-delete').addEventListener('click', () => {
+  if (confirm('Удалить эту смену?')) deleteShift();
+});
+
+document.getElementById('paste-btn').addEventListener('click', () => {
+  document.getElementById('paste-text').value = '';
+  document.getElementById('modal-paste').classList.add('show');
+});
+document.getElementById('paste-cancel').addEventListener('click', () => {
+  document.getElementById('modal-paste').classList.remove('show');
+});
+document.getElementById('paste-import').addEventListener('click', () => {
+  const text = document.getElementById('paste-text').value;
+  if (!text.trim()) { showToast('Поле пустое'); return; }
+  importPastedText(text);
+  document.getElementById('modal-paste').classList.remove('show');
+});
+
+document.getElementById('ocr-btn').addEventListener('click', () => {
+  document.getElementById('file-input').click();
+});
+document.getElementById('file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) runOCR(file);
+  e.target.value = '';
+});
+
+document.getElementById('export-btn').addEventListener('click', exportCSV);
+document.getElementById('clear-btn').addEventListener('click', () => {
+  if (confirm('Удалить ВСЕ данные? Это нельзя отменить.')) {
+    state.shifts = {};
+    save();
+    renderToday();
+    renderMonth();
+    showToast('Очищено');
+  }
+});
+
+// Backdrop close
+document.querySelectorAll('.modal-backdrop').forEach(b => {
+  b.addEventListener('click', (e) => {
+    if (e.target === b) b.classList.remove('show');
+  });
+});
+
+// Install hint (iOS Safari has no beforeinstallprompt; show a generic hint once)
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+if (!isStandalone && !localStorage.getItem('install-dismissed')) {
+  document.getElementById('install-hint').classList.add('show');
+}
+document.getElementById('dismiss-install').addEventListener('click', () => {
+  document.getElementById('install-hint').classList.remove('show');
+  localStorage.setItem('install-dismissed', '1');
+});
+
+/* =========================================================
+   INIT
+   ========================================================= */
+load();
+const now = new Date();
+setCurrentMonth(now.getFullYear(), now.getMonth());
+renderToday();
+
+// live timer for "in progress"
+setInterval(() => {
+  const k = todayKey();
+  const s = state.shifts[k];
+  if (s && s.start && !s.end) renderToday();
+}, 30000);
+</script>
+</body>
+</html>
