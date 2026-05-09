@@ -478,7 +478,7 @@
 
 <div class="app">
   <div class="header">
-    <h1>Töötunnid</h1>
+    <h1>Учет рабочего времени TLT</h1>
     <div class="header-info" id="header-info">—</div>
   </div>
 
@@ -1107,7 +1107,7 @@ function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'tootunnid.csv';
+  a.download = 'tlt_time_tracking.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
