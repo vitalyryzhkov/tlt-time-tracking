@@ -593,14 +593,10 @@
       <div class="stat-label">Δ к плану (за уже отработанные дни)</div>
       <div class="stat-value" id="m-delta">—</div>
     </div>
-    <div class="stats">
+    <div class="stats" style="grid-template-columns: repeat(2, 1fr);">
       <div class="stat">
         <div class="stat-label">Дней отраб.</div>
         <div class="stat-value" id="m-days">—</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Средняя смена</div>
-        <div class="stat-value" id="m-avg">—</div>
       </div>
       <div class="stat">
         <div class="stat-label">Подработки</div>
@@ -891,7 +887,6 @@ function renderMonth() {
   mdEl.classList.toggle('pos', md >= 0);
   mdEl.classList.toggle('neg', md < 0);
   document.getElementById('m-days').textContent = daysWorked;
-  document.getElementById('m-avg').textContent = daysWorked > 0 ? fmtMin(Math.round(totalWorked / daysWorked)) : '—';
   document.getElementById('m-extra').textContent = extras;
 }
 
