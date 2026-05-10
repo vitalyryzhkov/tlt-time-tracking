@@ -202,6 +202,70 @@
   }
 
 
+  /* Overtime toggle on Today view */
+  .overtime-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .overtime-toggle:active { transform: scale(0.99); }
+  .overtime-toggle.active {
+    background: rgba(177, 118, 214, 0.10);
+    border-color: rgba(177, 118, 214, 0.4);
+  }
+  .overtime-toggle input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    margin: 0;
+    transition: all 0.15s;
+  }
+  .overtime-toggle input[type="checkbox"]:checked {
+    background: #b176d6;
+    border-color: #b176d6;
+  }
+  .overtime-toggle input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 12px;
+    border: solid #1a0a1d;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg);
+  }
+  .overtime-toggle-text {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .overtime-toggle.active .overtime-toggle-text { color: #c592e0; }
+  .overtime-toggle-hint {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-left: auto;
+  }
+  @media (max-width: 420px) {
+    .overtime-toggle-hint { display: none; }
+  }
+
   /* Stats grid */
   .stats {
     display: grid;
@@ -329,7 +393,99 @@
   .day-name { font-size: 11px; color: var(--text-dim); }
   .day-empty { color: var(--text-faint); }
 
+  /* Status chips (in modal) */
+  .status-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    color: var(--text-dim);
+    padding: 8px 12px;
+    border-radius: 18px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .chip:active { transform: scale(0.96); }
+  .chip.active {
+    background: var(--accent);
+    color: #0a1410;
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+  .chip[data-status="vacation"].active { background: #c9a352; color: #1a1300; border-color: #c9a352; }
+  .chip[data-status="sick"].active { background: #d97757; color: #1a0a04; border-color: #d97757; }
+  .chip[data-status="off"].active { background: #6ba3d6; color: #06121d; border-color: #6ba3d6; }
+  .chip[data-status="extra"].active { background: #b176d6; color: #1a0a1d; border-color: #b176d6; }
+
+  /* Status badge in month table */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .badge.vacation { background: rgba(201, 163, 82, 0.18); color: #d4a543; }
+  .badge.sick { background: rgba(217, 119, 87, 0.18); color: var(--danger); }
+  .badge.off { background: rgba(107, 163, 214, 0.15); color: var(--info); }
+  .badge.extra { background: rgba(177, 118, 214, 0.18); color: #c592e0; }
+
   /* Stats view */
+  .period-switch {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-elevated);
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .period-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .period-btn.active {
+    background: var(--bg-input);
+    color: var(--text);
+  }
+  .period-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .period-nav button {
+    background: var(--bg-elevated);
+    border: none;
+    color: var(--text);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .period-nav button:hover { background: var(--bg-input); }
+  .period-title {
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 140px;
+    text-align: center;
+  }
   .stat-big {
     background: var(--bg-elevated);
     padding: 16px;
@@ -528,6 +684,12 @@
       </div>
     </div>
 
+    <label class="overtime-toggle" id="overtime-toggle">
+      <input type="checkbox" id="overtime-check">
+      <span class="overtime-toggle-text">Подработка</span>
+      <span class="overtime-toggle-hint">пометить смену как дополнительную</span>
+    </label>
+
     <div class="stats">
       <div class="stat">
         <div class="stat-label">Отработано</div>
@@ -580,28 +742,72 @@
 
   <!-- STATS -->
   <div class="view" id="view-stats">
+    <div class="period-switch">
+      <button type="button" class="period-btn active" data-period="month">Месяц</button>
+      <button type="button" class="period-btn" data-period="year">Год</button>
+    </div>
+
+    <div class="period-nav">
+      <button id="stats-prev">‹</button>
+      <span class="period-title" id="stats-title">—</span>
+      <button id="stats-next">›</button>
+    </div>
+
     <div class="stat-big">
-      <div class="stat-label">План месяца</div>
-      <div class="stat-value" id="m-plan">—</div>
+      <div class="stat-label">План</div>
+      <div class="stat-value" id="s-plan">—</div>
     </div>
     <div class="stat-big">
       <div class="stat-label">Отработано</div>
-      <div class="stat-value" id="m-worked">—</div>
+      <div class="stat-value" id="s-worked">—</div>
     </div>
     <div class="stat-big">
       <div class="stat-label">Δ к плану (за уже отработанные дни)</div>
-      <div class="stat-value" id="m-delta">—</div>
+      <div class="stat-value" id="s-delta">—</div>
     </div>
+
     <div class="stats" style="grid-template-columns: repeat(2, 1fr);">
       <div class="stat">
         <div class="stat-label">Дней отраб.</div>
-        <div class="stat-value" id="m-days">—</div>
+        <div class="stat-value" id="s-days">—</div>
       </div>
       <div class="stat">
         <div class="stat-label">Подработки</div>
-        <div class="stat-value" id="m-extra">—</div>
+        <div class="stat-value" id="s-extra">—</div>
       </div>
     </div>
+    <div class="stats" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="stat">
+        <div class="stat-label">Отпуск</div>
+        <div class="stat-value" id="s-vacation" style="color: #d4a543;">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Больничный</div>
+        <div class="stat-value" id="s-sick" style="color: var(--danger);">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Выходные</div>
+        <div class="stat-value" id="s-off" style="color: var(--info);">—</div>
+      </div>
+    </div>
+
+    <!-- Year-only: month breakdown table -->
+    <div id="year-breakdown" style="display: none; margin-top: 16px;">
+      <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">По месяцам</div>
+      <table class="month-table">
+        <thead>
+          <tr>
+            <th>Месяц</th>
+            <th class="num">План</th>
+            <th class="num">Факт</th>
+            <th class="num">Δ</th>
+            <th class="num">Дней</th>
+          </tr>
+        </thead>
+        <tbody id="year-tbody"></tbody>
+      </table>
+    </div>
+
     <div style="margin-top: 16px;">
       <button class="btn" id="export-btn">⬇ Экспорт CSV</button>
       <button class="btn btn-danger" id="clear-btn">⚠ Очистить всё</button>
@@ -616,18 +822,64 @@
     <div class="modal-row">
       <label style="flex: 1;">Дата<input type="date" id="shift-date"></label>
     </div>
-    <div class="modal-row">
-      <label style="flex: 1;">План (часы:минуты)<input type="text" id="shift-plan" placeholder="8:00"></label>
+
+    <div style="margin-bottom: 14px;">
+      <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Тип дня</div>
+      <div class="status-chips" id="shift-status-chips">
+        <button type="button" class="chip" data-status="work">Рабочий</button>
+        <button type="button" class="chip" data-status="extra">Подработка</button>
+        <button type="button" class="chip" data-status="vacation">Отпуск</button>
+        <button type="button" class="chip" data-status="sick">Больничный</button>
+        <button type="button" class="chip" data-status="off">Выходной</button>
+      </div>
     </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-      <label>Старт<input type="time" id="shift-start"></label>
-      <label>Конец<input type="time" id="shift-end"></label>
-      <label>На обед<input type="time" id="shift-lunchIn"></label>
-      <label>С обеда<input type="time" id="shift-lunchOut"></label>
+
+    <div id="shift-work-fields">
+      <div class="modal-row">
+        <label style="flex: 1;">План (часы:минуты)<input type="text" id="shift-plan" placeholder="8:00" inputmode="numeric"></label>
+      </div>
+
+      <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 8px;">Смена</div>
+      <div class="time-pair">
+        <div class="time-field">
+          <span class="time-field-label">Начало</span>
+          <div class="time-input-row" data-field="start" data-scope="modal">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+        <div class="time-field">
+          <span class="time-field-label">Конец</span>
+          <div class="time-input-row" data-field="end" data-scope="modal">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 8px;">Обед</div>
+      <div class="time-pair">
+        <div class="time-field">
+          <span class="time-field-label">Начало</span>
+          <div class="time-input-row" data-field="lunchIn" data-scope="modal">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+        <div class="time-field">
+          <span class="time-field-label">Конец</span>
+          <div class="time-input-row" data-field="lunchOut" data-scope="modal">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+      </div>
     </div>
-    <label style="display: block; margin-top: 12px;">
-      <input type="checkbox" id="shift-extra"> подработка
-    </label>
+
     <div class="modal-actions">
       <button class="btn" id="shift-cancel">Отмена</button>
       <button class="btn btn-danger" id="shift-delete" style="display:none;">Удалить</button>
@@ -640,7 +892,7 @@
   <div class="modal">
     <h3>Вставить график KUUGRAAFIK</h3>
     <p style="font-size: 13px; color: var(--text-dim); margin: 0 0 12px;">
-      Скопируй текст из письма (или таблицы) и вставь сюда. Распознаются строки вида «1 Vaba päev» или «3 72 03 1 9:00».
+      Скопируй текст из письма (или таблицы) и вставь сюда. Распознаются: рабочие дни с планом (например «3 72 03 1 9:00»), выходные (Vaba päev / выходной / вихідний), отпуск (Puhkusel / в отпуске / у відпустці), больничный (Haige / больничный / лікарняний), резерв.
     </p>
     <textarea id="paste-text" placeholder="1  Vaba päev&#10;2  Vaba päev&#10;3  72  03  1  9:00&#10;..."></textarea>
     <div class="modal-actions">
@@ -660,6 +912,8 @@ const STORAGE_KEY = 'work-tracker-v1';
 const state = {
   shifts: {},
   currentMonth: null,
+  statsPeriod: 'month', // 'month' | 'year'
+  statsCursor: null, // { y, m } for month, { y } for year
 };
 
 function load() {
@@ -668,6 +922,14 @@ function load() {
     if (raw) {
       const data = JSON.parse(raw);
       state.shifts = data.shifts || {};
+      // Migrate legacy `extra: true` flag to `status: 'extra'`
+      Object.keys(state.shifts).forEach(k => {
+        const s = state.shifts[k];
+        if (s && !s.status) {
+          if (s.extra) s.status = 'extra';
+          // otherwise leave status undefined — treated as 'work' by default
+        }
+      });
     }
   } catch(e) { console.warn('load failed', e); }
 }
@@ -741,16 +1003,34 @@ function pairDuration(a, b) {
 const MONTH_NAMES_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DAY_NAMES_RU = ['вс','пн','вт','ср','чт','пт','сб'];
 
+const STATUS_LABELS = {
+  work: 'Рабочий',
+  extra: 'Подработка',
+  vacation: 'Отпуск',
+  sick: 'Больничный',
+  off: 'Выходной',
+};
+function dayStatus(s) {
+  if (!s) return null;
+  if (s.status) return s.status;
+  if (s.extra) return 'extra';
+  return 'work';
+}
+function isNonWorkStatus(st) {
+  return st === 'vacation' || st === 'sick' || st === 'off';
+}
+
 /* =========================================================
    TIME INPUT HELPERS — split HH:MM with numeric keyboard
    ========================================================= */
 const FIELD_ORDER = ['start', 'end', 'lunchIn', 'lunchOut'];
 
-function getInputRow(field) {
-  return document.querySelector(`.time-input-row[data-field="${field}"]`);
+function getInputRow(field, scope) {
+  scope = scope || 'today';
+  return document.querySelector(`.time-input-row[data-field="${field}"]${scope === 'modal' ? '[data-scope="modal"]' : ':not([data-scope="modal"])'}`);
 }
-function focusFieldHH(field) {
-  const row = getInputRow(field);
+function focusFieldHH(field, scope) {
+  const row = getInputRow(field, scope);
   if (!row) return;
   const hh = row.querySelector('[data-part="hh"]');
   if (hh) {
@@ -763,9 +1043,8 @@ function nextFieldOf(field) {
   if (i === -1 || i === FIELD_ORDER.length - 1) return null;
   return FIELD_ORDER[i + 1];
 }
-function setRowValue(field, timeStr) {
-  // timeStr: "HH:MM" or null/empty
-  const row = getInputRow(field);
+function setRowValue(field, timeStr, scope) {
+  const row = getInputRow(field, scope);
   if (!row) return;
   const hhInp = row.querySelector('[data-part="hh"]');
   const mmInp = row.querySelector('[data-part="mm"]');
@@ -780,20 +1059,22 @@ function setRowValue(field, timeStr) {
     row.classList.remove('filled');
   }
 }
-function readRowValue(field) {
-  const row = getInputRow(field);
+function readRowValueFromRow(row) {
   if (!row) return null;
   const hhInp = row.querySelector('[data-part="hh"]');
   const mmInp = row.querySelector('[data-part="mm"]');
   const h = hhInp.value.trim();
   const m = mmInp.value.trim();
   if (h === '' && m === '') return null;
-  if (h === '' || m === '') return undefined; // partial — not yet valid
+  if (h === '' || m === '') return undefined;
   const hi = parseInt(h, 10);
   const mi = parseInt(m, 10);
   if (isNaN(hi) || isNaN(mi)) return undefined;
   if (hi < 0 || hi > 23 || mi < 0 || mi > 59) return undefined;
   return pad(hi) + ':' + pad(mi);
+}
+function readRowValue(field, scope) {
+  return readRowValueFromRow(getInputRow(field, scope));
 }
 
 function commitField(field) {
@@ -819,6 +1100,7 @@ function commitField(field) {
 
 function setupTimeInput(row) {
   const field = row.dataset.field;
+  const scope = row.dataset.scope === 'modal' ? 'modal' : 'today';
   const hhInp = row.querySelector('[data-part="hh"]');
   const mmInp = row.querySelector('[data-part="mm"]');
 
@@ -830,16 +1112,17 @@ function setupTimeInput(row) {
   [hhInp, mmInp].forEach(inp => {
     inp.addEventListener('focus', () => {
       row.classList.add('focus-within');
-      // capture emptiness when focus lands anywhere in this row
-      const k = todayKey();
-      const s = state.shifts[k] || {};
-      if (!s[field]) wasEmptyOnFocus = true;
+      // capture emptiness at the moment focus lands somewhere in this row
+      const otherInp = inp === hhInp ? mmInp : hhInp;
+      if (inp.value === '' && otherInp.value === '') {
+        wasEmptyOnFocus = true;
+      }
       try { inp.select(); } catch(_) {}
     });
     inp.addEventListener('blur', () => {
       row.classList.remove('focus-within');
       if (inp.value.length === 1) inp.value = '0' + inp.value;
-      commitField(field);
+      if (scope === 'today') commitField(field);
     });
   });
 
@@ -852,7 +1135,7 @@ function setupTimeInput(row) {
     hhInp.value = v;
     if (v.length === 2) {
       mmInp.focus();
-    } else {
+    } else if (scope === 'today') {
       commitField(field);
     }
   });
@@ -865,28 +1148,21 @@ function setupTimeInput(row) {
     }
     mmInp.value = v;
     if (v.length === 2) {
-      // Field is now fully filled. If it was empty when user started typing,
-      // jump to the next field in the sequence so they can keep entering
-      // without tapping anywhere.
       if (wasEmptyOnFocus) {
         const next = nextFieldOf(field);
         wasEmptyOnFocus = false;
         if (next) {
-          // commit current field first, then move focus
-          commitField(field);
-          // small timeout to let blur/commit settle and (on mobile) keep keyboard open
-          setTimeout(() => focusFieldHH(next), 0);
+          if (scope === 'today') commitField(field);
+          setTimeout(() => focusFieldHH(next, scope), 0);
         } else {
-          mmInp.blur(); // last field — close keyboard
+          mmInp.blur();
         }
       } else {
-        // Editing an existing value — just close keyboard
         mmInp.blur();
       }
     }
   });
 
-  // Backspace on empty MM → jump back to HH
   mmInp.addEventListener('keydown', (e) => {
     if (e.key === 'Backspace' && mmInp.value === '') {
       hhInp.focus();
@@ -928,6 +1204,13 @@ function renderToday() {
   const lunchDur = pairDuration(s.lunchIn, s.lunchOut);
   document.getElementById('dur-shift').textContent = shiftDur != null ? fmtMin(shiftDur) : '';
   document.getElementById('dur-lunch').textContent = lunchDur != null ? fmtMin(lunchDur) : '';
+
+  // Sync the "Подработка" toggle state
+  const isExtra = dayStatus(s) === 'extra';
+  const overtimeCheck = document.getElementById('overtime-check');
+  const overtimeWrap = document.getElementById('overtime-toggle');
+  if (overtimeCheck) overtimeCheck.checked = isExtra;
+  if (overtimeWrap) overtimeWrap.classList.toggle('active', isExtra);
 
   const w = workMinutes(s);
   const planMin = parseTime(s.plan);
@@ -985,7 +1268,6 @@ function renderMonth() {
 
   const daysInMonth = new Date(y, m+1, 0).getDate();
   const todayK = todayKey();
-  let totalPlan = 0, totalWorked = 0, daysWorked = 0, planForWorkedDays = 0, extras = 0;
 
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(y, m, day);
@@ -1006,47 +1288,161 @@ function renderMonth() {
         <td class="num dim">—</td>
         <td class="num dim">—</td>`;
     } else {
+      const st = dayStatus(s);
       const w = workMinutes(s);
       const planMin = parseTime(s.plan);
-      if (planMin && !s.extra) totalPlan += planMin;
-      if (w != null) {
-        totalWorked += w;
-        daysWorked++;
-        if (planMin) planForWorkedDays += planMin;
-        if (s.extra) extras++;
-      }
-      const delta = (w != null && planMin) ? w - planMin : null;
-      const deltaStr = delta != null ? fmtMinSigned(delta) : '—';
-      const deltaClass = delta == null ? 'dim' : (delta >= 0 ? 'pos' : 'neg');
-      const extraMark = s.extra ? ' ⊕' : '';
 
-      tr.innerHTML = `
-        <td><div class="day-cell"><span class="day-num">${day}${extraMark}</span><span class="day-name">${dayName}</span></div></td>
-        <td class="num dim">${s.plan || '—'}</td>
-        <td class="num">${s.start || '—'}</td>
-        <td class="num">${s.end || '—'}</td>
-        <td class="num" style="font-weight:500;">${w != null ? fmtMin(w) : '—'}</td>
-        <td class="num ${deltaClass}">${deltaStr}</td>`;
+      if (isNonWorkStatus(st)) {
+        tr.innerHTML = `
+          <td><div class="day-cell"><span class="day-num">${day}</span><span class="day-name">${dayName}</span></div></td>
+          <td colspan="5"><span class="badge ${st}">${STATUS_LABELS[st]}</span></td>`;
+      } else {
+        const delta = (w != null && planMin) ? w - planMin : null;
+        const deltaStr = delta != null ? fmtMinSigned(delta) : '—';
+        const deltaClass = delta == null ? 'dim' : (delta >= 0 ? 'pos' : 'neg');
+        const extraBadge = st === 'extra' ? ' <span class="badge extra" style="margin-left:4px;">подр.</span>' : '';
+
+        tr.innerHTML = `
+          <td><div class="day-cell"><span class="day-num">${day}${extraBadge}</span><span class="day-name">${dayName}</span></div></td>
+          <td class="num dim">${s.plan || '—'}</td>
+          <td class="num">${s.start || '—'}</td>
+          <td class="num">${s.end || '—'}</td>
+          <td class="num" style="font-weight:500;">${w != null ? fmtMin(w) : '—'}</td>
+          <td class="num ${deltaClass}">${deltaStr}</td>`;
+      }
     }
     tr.addEventListener('click', () => openShiftModal(k));
     tbody.appendChild(tr);
   }
 
-  document.getElementById('m-plan').textContent = fmtMin(totalPlan);
-  document.getElementById('m-worked').textContent = fmtMin(totalWorked);
-  const md = totalWorked - planForWorkedDays;
-  const mdEl = document.getElementById('m-delta');
-  mdEl.textContent = daysWorked === 0 ? '—' : fmtMinSigned(md);
-  mdEl.classList.toggle('pos', md >= 0);
-  mdEl.classList.toggle('neg', md < 0);
-  document.getElementById('m-days').textContent = daysWorked;
-  document.getElementById('m-extra').textContent = extras;
+  // Refresh stats panel since "month" period may match this month
+  renderStats();
+}
+
+/* =========================================================
+   AGGREGATION & STATS VIEW
+   ========================================================= */
+// Aggregate shifts between two date-keys (inclusive). Keys are 'YYYY-MM-DD'.
+function aggregateRange(fromKey, toKey) {
+  let totalPlan = 0, totalWorked = 0;
+  let daysWorked = 0, planForWorkedDays = 0;
+  let extras = 0, vacation = 0, sick = 0, off = 0;
+
+  Object.keys(state.shifts).forEach(k => {
+    if (k < fromKey || k > toKey) return;
+    const s = state.shifts[k];
+    if (!s) return;
+    const st = dayStatus(s);
+    const w = workMinutes(s);
+    const planMin = parseTime(s.plan);
+
+    if (st === 'work' && planMin) totalPlan += planMin;
+    if ((st === 'work' || st === 'extra') && w != null) {
+      totalWorked += w;
+      daysWorked++;
+      if (st === 'work' && planMin) planForWorkedDays += planMin;
+      if (st === 'extra') extras++;
+    }
+    if (st === 'vacation') vacation++;
+    if (st === 'sick') sick++;
+    if (st === 'off') off++;
+  });
+
+  const delta = totalWorked - planForWorkedDays;
+  return { totalPlan, totalWorked, daysWorked, planForWorkedDays, delta, extras, vacation, sick, off };
+}
+
+function renderStats() {
+  const period = state.statsPeriod || 'month';
+  const cursor = state.statsCursor;
+  let fromKey, toKey, title;
+
+  if (period === 'month') {
+    const y = cursor.y, m = cursor.m;
+    fromKey = y + '-' + pad(m+1) + '-01';
+    toKey = y + '-' + pad(m+1) + '-' + pad(new Date(y, m+1, 0).getDate());
+    title = MONTH_NAMES_RU[m] + ' ' + y;
+  } else {
+    const y = cursor.y;
+    fromKey = y + '-01-01';
+    toKey = y + '-12-31';
+    title = String(y);
+  }
+
+  document.getElementById('stats-title').textContent = title;
+  const agg = aggregateRange(fromKey, toKey);
+
+  document.getElementById('s-plan').textContent = fmtMin(agg.totalPlan);
+  document.getElementById('s-worked').textContent = fmtMin(agg.totalWorked);
+  const deltaEl = document.getElementById('s-delta');
+  if (agg.daysWorked === 0) {
+    deltaEl.textContent = '—';
+    deltaEl.classList.remove('pos', 'neg');
+  } else {
+    deltaEl.textContent = fmtMinSigned(agg.delta);
+    deltaEl.classList.toggle('pos', agg.delta >= 0);
+    deltaEl.classList.toggle('neg', agg.delta < 0);
+  }
+  document.getElementById('s-days').textContent = agg.daysWorked;
+  document.getElementById('s-extra').textContent = agg.extras;
+  document.getElementById('s-vacation').textContent = agg.vacation;
+  document.getElementById('s-sick').textContent = agg.sick;
+  document.getElementById('s-off').textContent = agg.off;
+
+  // Year-only month-by-month breakdown
+  const breakdown = document.getElementById('year-breakdown');
+  const tbody = document.getElementById('year-tbody');
+  if (period === 'year') {
+    breakdown.style.display = 'block';
+    tbody.innerHTML = '';
+    for (let mi = 0; mi < 12; mi++) {
+      const y = cursor.y;
+      const from = y + '-' + pad(mi+1) + '-01';
+      const to = y + '-' + pad(mi+1) + '-' + pad(new Date(y, mi+1, 0).getDate());
+      const a = aggregateRange(from, to);
+      const tr = document.createElement('tr');
+      if (a.daysWorked === 0 && a.vacation === 0 && a.sick === 0 && a.off === 0 && a.totalPlan === 0) {
+        tr.innerHTML = `<td class="dim">${MONTH_NAMES_RU[mi]}</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>`;
+      } else {
+        const dStr = a.daysWorked === 0 ? '—' : fmtMinSigned(a.delta);
+        const dClass = a.daysWorked === 0 ? 'dim' : (a.delta >= 0 ? 'pos' : 'neg');
+        tr.innerHTML = `
+          <td>${MONTH_NAMES_RU[mi]}</td>
+          <td class="num dim">${fmtMin(a.totalPlan)}</td>
+          <td class="num" style="font-weight:500;">${fmtMin(a.totalWorked)}</td>
+          <td class="num ${dClass}">${dStr}</td>
+          <td class="num">${a.daysWorked}</td>`;
+        // Clicking a month row jumps the month view there
+        tr.style.cursor = 'pointer';
+        const captured = { y, m: mi };
+        tr.addEventListener('click', () => {
+          setCurrentMonth(captured.y, captured.m);
+          switchView('month');
+        });
+      }
+      tbody.appendChild(tr);
+    }
+  } else {
+    breakdown.style.display = 'none';
+  }
 }
 
 /* =========================================================
    SHIFT MODAL
    ========================================================= */
 let editingDate = null;
+let modalStatus = 'work';
+
+function setModalStatus(st) {
+  modalStatus = st;
+  document.querySelectorAll('#shift-status-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.status === st);
+  });
+  // Hide work-related fields for non-work statuses
+  const showWork = (st === 'work' || st === 'extra');
+  document.getElementById('shift-work-fields').style.display = showWork ? 'block' : 'none';
+}
+
 function openShiftModal(dateK) {
   editingDate = dateK;
   const s = state.shifts[dateK] || {};
@@ -1054,34 +1450,39 @@ function openShiftModal(dateK) {
     'Смена • ' + dateK.split('-').reverse().join('.');
   document.getElementById('shift-date').value = dateK;
   document.getElementById('shift-plan').value = s.plan || '';
-  document.getElementById('shift-start').value = s.start || '';
-  document.getElementById('shift-end').value = s.end || '';
-  document.getElementById('shift-lunchIn').value = s.lunchIn || '';
-  document.getElementById('shift-lunchOut').value = s.lunchOut || '';
-  document.getElementById('shift-extra').checked = !!s.extra;
+  setRowValue('start', s.start || null, 'modal');
+  setRowValue('end', s.end || null, 'modal');
+  setRowValue('lunchIn', s.lunchIn || null, 'modal');
+  setRowValue('lunchOut', s.lunchOut || null, 'modal');
+  setModalStatus(dayStatus(s) || 'work');
   document.getElementById('shift-delete').style.display = state.shifts[dateK] ? 'block' : 'none';
   document.getElementById('modal-shift').classList.add('show');
 }
 function closeShiftModal() {
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
   document.getElementById('modal-shift').classList.remove('show');
   editingDate = null;
 }
 function saveShift() {
   const newDate = document.getElementById('shift-date').value;
   if (!newDate) { showToast('Укажи дату'); return; }
-  const data = {
-    plan: document.getElementById('shift-plan').value.trim() || null,
-    start: document.getElementById('shift-start').value || null,
-    end: document.getElementById('shift-end').value || null,
-    lunchIn: document.getElementById('shift-lunchIn').value || null,
-    lunchOut: document.getElementById('shift-lunchOut').value || null,
-    extra: document.getElementById('shift-extra').checked,
-  };
-  Object.keys(data).forEach(k => { if (data[k] == null || data[k] === false) delete data[k]; });
+  const data = { status: modalStatus };
+  if (modalStatus === 'work' || modalStatus === 'extra') {
+    const plan = document.getElementById('shift-plan').value.trim();
+    if (plan) data.plan = plan;
+    const s1 = readRowValue('start', 'modal'); if (s1) data.start = s1;
+    const s2 = readRowValue('end', 'modal'); if (s2) data.end = s2;
+    const s3 = readRowValue('lunchIn', 'modal'); if (s3) data.lunchIn = s3;
+    const s4 = readRowValue('lunchOut', 'modal'); if (s4) data.lunchOut = s4;
+  }
   if (editingDate && editingDate !== newDate) {
     delete state.shifts[editingDate];
   }
-  if (Object.keys(data).length === 0) {
+  // Drop record entirely if it's the default empty 'work' status with no data
+  const hasContent = (data.status !== 'work') || data.plan || data.start || data.end || data.lunchIn || data.lunchOut;
+  if (!hasContent) {
     delete state.shifts[newDate];
   } else {
     state.shifts[newDate] = data;
@@ -1111,34 +1512,93 @@ function importPastedText(text) {
   const lines = text.split('\n');
   let imported = 0;
 
+  // Status keyword detection — Estonian / Russian / Ukrainian variants.
+  // Returns one of: 'vacation', 'sick', 'off', 'reserve', or null.
+  function detectStatus(rest) {
+    const r = rest.toLowerCase();
+    // Vacation: et — puhkus, puhkusel; ru — отпуск, в отпуске; uk — відпустка, у відпустці
+    if (/puhku(s|sel)/i.test(rest)
+      || /отпуск/i.test(rest)
+      || /в\s*отпуске/i.test(rest)
+      || /відпуст/i.test(rest)
+      || /у\s*відпустці/i.test(rest)) return 'vacation';
+    // Sick: et — haige, haiguslehel; ru — больничный, на больничном; uk — лікарняний, на лікарняному
+    if (/haige|haigusleh/i.test(rest)
+      || /больничн/i.test(rest)
+      || /лікарнян/i.test(rest)) return 'sick';
+    // Day off: et — vaba päev; ru — выходной; uk — вихідний
+    if (/vaba\s*p[äa]ev|free/i.test(rest)
+      || /выходн/i.test(rest)
+      || /вихідн|вихiдн/i.test(rest)) return 'off';
+    // Reserve — Estonian: Reservis; treat as work day without specific plan
+    if (/reservis|резерв/i.test(rest)) return 'reserve';
+    return null;
+  }
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     if (/^(KUUGRAAFIK|Kuu|Liin|Vahetus|Kokku|date|plan|mobis)/i.test(trimmed)) continue;
 
-    let match = trimmed.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})\s+.*?(\d{1,2}):(\d{2})/);
+    // Pattern A: full date "dd.mm.yyyy ... H:MM" with explicit year
+    let match = trimmed.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})\s+(.*)$/);
     if (match) {
       const day = parseInt(match[1]);
       const mm = parseInt(match[2]) - 1;
       const yy = parseInt(match[3]);
-      const plan = match[4] + ':' + match[5];
+      const rest = match[4];
       const k = yy + '-' + pad(mm+1) + '-' + pad(day);
-      state.shifts[k] = { ...(state.shifts[k] || {}), plan };
-      imported++;
+      const status = detectStatus(rest);
+      if (status === 'vacation' || status === 'sick' || status === 'off') {
+        state.shifts[k] = { ...(state.shifts[k] || {}), status };
+        imported++;
+        continue;
+      }
+      const planMatch = rest.match(/(\d{1,2}):(\d{2})/);
+      if (planMatch) {
+        const plan = planMatch[1] + ':' + planMatch[2];
+        state.shifts[k] = { ...(state.shifts[k] || {}), plan, status: 'work' };
+        imported++;
+        continue;
+      }
+      if (status === 'reserve') {
+        state.shifts[k] = { ...(state.shifts[k] || {}), status: 'work' };
+        imported++;
+      }
       continue;
     }
 
-    if (/^(\d{1,2})\s+(Vaba\s*p|Vaba päev|Free)/i.test(trimmed)) continue;
-
-    match = trimmed.match(/^(\d{1,2})\s+.*?(\d{1,2}):(\d{2})\s*$/);
+    // Pattern B: starts with day-of-month, then any text
+    match = trimmed.match(/^(\d{1,2})\s+(.*)$/);
     if (match) {
       const day = parseInt(match[1]);
       if (day < 1 || day > 31) continue;
-      const plan = match[2] + ':' + match[3];
+      const rest = match[2];
       const k = y + '-' + pad(m+1) + '-' + pad(day);
-      state.shifts[k] = { ...(state.shifts[k] || {}), plan };
-      imported++;
-      continue;
+      const status = detectStatus(rest);
+
+      if (status === 'vacation' || status === 'sick' || status === 'off') {
+        state.shifts[k] = { ...(state.shifts[k] || {}), status };
+        imported++;
+        continue;
+      }
+      // Reserve = work day, no fixed plan
+      if (status === 'reserve') {
+        // Reserve days often include a plan like "8:00" anyway — try to grab it
+        const planMatch = rest.match(/(\d{1,2}):(\d{2})/);
+        const prev = state.shifts[k] || {};
+        state.shifts[k] = { ...prev, status: 'work', ...(planMatch ? { plan: planMatch[1] + ':' + planMatch[2] } : {}) };
+        imported++;
+        continue;
+      }
+      // Regular work day with plan: find H:MM anywhere in the rest of the line
+      const planMatch = rest.match(/(\d{1,2}):(\d{2})/);
+      if (planMatch) {
+        const plan = planMatch[1] + ':' + planMatch[2];
+        state.shifts[k] = { ...(state.shifts[k] || {}), plan, status: 'work' };
+        imported++;
+        continue;
+      }
     }
   }
 
@@ -1151,14 +1611,16 @@ function importPastedText(text) {
    CSV EXPORT
    ========================================================= */
 function exportCSV() {
-  const rows = [['Дата','План','Старт','Конец','На обед','С обеда','Отработано','Δ','Подработка']];
+  const rows = [['Дата','Статус','План','Старт','Конец','На обед','С обеда','Отработано','Δ']];
   Object.keys(state.shifts).sort().forEach(k => {
     const s = state.shifts[k];
+    const st = dayStatus(s);
     const w = workMinutes(s);
     const planMin = parseTime(s.plan);
-    const delta = (w != null && planMin) ? w - planMin : null;
+    const delta = (w != null && planMin && !isNonWorkStatus(st)) ? w - planMin : null;
     rows.push([
       k,
+      STATUS_LABELS[st] || '',
       s.plan || '',
       s.start || '',
       s.end || '',
@@ -1166,7 +1628,6 @@ function exportCSV() {
       s.lunchOut || '',
       w != null ? fmtMin(w) : '',
       delta != null ? fmtMinSigned(delta) : '',
-      s.extra ? 'да' : ''
     ]);
   });
   const csv = rows.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -1193,14 +1654,55 @@ function showToast(msg, duration) {
 function switchView(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  if (name === 'stats') renderStats();
 }
 
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => switchView(t.dataset.view));
 });
 
+// Period switch on stats view
+document.querySelectorAll('.period-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    const p = b.dataset.period;
+    state.statsPeriod = p;
+    // Reset cursor to "current" when switching periods
+    const d = new Date();
+    if (p === 'month') {
+      state.statsCursor = { y: d.getFullYear(), m: d.getMonth() };
+    } else {
+      state.statsCursor = { y: d.getFullYear() };
+    }
+    document.querySelectorAll('.period-btn').forEach(x => x.classList.toggle('active', x.dataset.period === p));
+    renderStats();
+  });
+});
+document.getElementById('stats-prev').addEventListener('click', () => {
+  if (state.statsPeriod === 'month') {
+    const { y, m } = state.statsCursor;
+    state.statsCursor = m === 0 ? { y: y-1, m: 11 } : { y, m: m-1 };
+  } else {
+    state.statsCursor = { y: state.statsCursor.y - 1 };
+  }
+  renderStats();
+});
+document.getElementById('stats-next').addEventListener('click', () => {
+  if (state.statsPeriod === 'month') {
+    const { y, m } = state.statsCursor;
+    state.statsCursor = m === 11 ? { y: y+1, m: 0 } : { y, m: m+1 };
+  } else {
+    state.statsCursor = { y: state.statsCursor.y + 1 };
+  }
+  renderStats();
+});
+
 // Setup all time-input rows
 document.querySelectorAll('.time-input-row').forEach(setupTimeInput);
+
+// Status chip clicks
+document.querySelectorAll('#shift-status-chips .chip').forEach(c => {
+  c.addEventListener('click', () => setModalStatus(c.dataset.status));
+});
 
 document.getElementById('reset-link').addEventListener('click', () => {
   // Drop focus from any active time input so its blur handler doesn't
@@ -1217,6 +1719,32 @@ document.getElementById('reset-link').addEventListener('click', () => {
     renderMonth();
     showToast('Сброшено');
   }
+});
+
+// Подработка toggle
+document.getElementById('overtime-check').addEventListener('change', (e) => {
+  const k = todayKey();
+  const checked = e.target.checked;
+  if (checked) {
+    // Mark today's record as overtime (create the record if it doesn't exist yet)
+    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
+    state.shifts[k].status = 'extra';
+  } else {
+    // Demote back to regular work day; if record is otherwise empty, drop it
+    if (state.shifts[k]) {
+      state.shifts[k].status = 'work';
+      // Clean up legacy flag too
+      delete state.shifts[k].extra;
+      const hasContent = state.shifts[k].start || state.shifts[k].end ||
+                         state.shifts[k].lunchIn || state.shifts[k].lunchOut ||
+                         (state.shifts[k].plan && state.shifts[k].plan !== '8:00');
+      if (!hasContent) delete state.shifts[k];
+    }
+  }
+  save();
+  renderToday();
+  renderMonth();
+  showToast(checked ? 'Помечено как подработка' : 'Снято с подработки', 1500);
 });
 
 document.getElementById('prev-month').addEventListener('click', () => {
@@ -1285,6 +1813,7 @@ document.getElementById('dismiss-install').addEventListener('click', () => {
    ========================================================= */
 load();
 const now = new Date();
+state.statsCursor = { y: now.getFullYear(), m: now.getMonth() };
 setCurrentMonth(now.getFullYear(), now.getMonth());
 renderToday();
 
