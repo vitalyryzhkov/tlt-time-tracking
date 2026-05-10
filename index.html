@@ -120,64 +120,87 @@
   }
   .today-status.active { color: var(--accent); }
 
-  /* Action buttons */
-  .actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .action {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px;
-    min-height: 64px;
+  /* Time entry blocks (replaces action buttons + manual edit) */
+  .time-block {
     background: var(--bg-elevated);
-    border: 1px solid var(--border-soft);
-    border-radius: 12px;
-    color: var(--text);
-    font-size: 14px;
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.12s;
-    -webkit-user-select: none;
-    user-select: none;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 10px;
   }
-  .action:active {
-    transform: scale(0.97);
-    background: var(--bg-input);
-  }
-  .action.done {
-    background: rgba(84, 181, 120, 0.08);
-    border-color: rgba(84, 181, 120, 0.3);
-  }
-  .action.done .action-icon { color: var(--accent); }
-  .action-icon {
-    width: 28px;
-    height: 28px;
+  .time-block-title {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    color: var(--text-dim);
-    flex-shrink: 0;
   }
-  .action-icon svg { width: 22px; height: 22px; }
-  .action-body { display: flex; flex-direction: column; min-width: 0; }
-  .action-label {
-    font-weight: 500;
-    font-size: 14px;
-  }
-  .action-time {
-    font-size: 13px;
-    color: var(--text-dim);
-    font-variant-numeric: tabular-nums;
-    margin-top: 2px;
-  }
-  .action.done .action-time {
+  .time-block-duration {
+    font-size: 12px;
     color: var(--accent);
     font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
   }
+  .time-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .time-field {
+    display: flex;
+    flex-direction: column;
+  }
+  .time-field-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .time-input-row {
+    display: flex;
+    align-items: center;
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .time-input-row.filled { border-color: var(--accent-dim); background: rgba(84, 181, 120, 0.06); }
+  .time-input-row.focus-within { border-color: var(--accent); }
+  .time-num {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 500;
+    text-align: center;
+    padding: 12px 4px;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    width: 100%;
+    min-width: 0;
+    -moz-appearance: textfield;
+  }
+  .time-num::-webkit-outer-spin-button,
+  .time-num::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .time-num:focus { outline: none; }
+  .time-num::placeholder { color: var(--text-faint); font-weight: 400; }
+  .time-sep {
+    color: var(--text-dim);
+    font-size: 22px;
+    font-weight: 500;
+    padding: 0 2px;
+    user-select: none;
+  }
+
 
   /* Stats grid */
   .stats {
@@ -206,41 +229,6 @@
   .stat-value.pos { color: var(--accent); }
   .stat-value.neg { color: var(--danger); }
 
-  /* Manual edit panel */
-  details {
-    background: var(--bg-elevated);
-    border-radius: 12px;
-    padding: 0;
-    margin-bottom: 12px;
-  }
-  summary {
-    padding: 14px 16px;
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--text-dim);
-    list-style: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  summary::-webkit-details-marker { display: none; }
-  summary::after {
-    content: '›';
-    transform: rotate(90deg);
-    transition: transform 0.2s;
-    font-size: 18px;
-  }
-  details[open] summary::after { transform: rotate(-90deg); }
-  .edit-grid {
-    padding: 0 16px 16px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .edit-grid label {
-    font-size: 12px;
-    color: var(--text-dim);
-  }
   input[type="time"], input[type="date"], input[type="text"], input[type="number"] {
     width: 100%;
     background: var(--bg-input);
@@ -488,46 +476,57 @@
       <div class="today-status" id="today-status">Ещё не начат</div>
     </div>
 
-    <div class="actions">
-      <button class="action" data-event="start">
-        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg></span>
-        <span class="action-body">
-          <span class="action-label">Начать смену</span>
-          <span class="action-time" id="time-start">—</span>
-        </span>
-      </button>
-      <button class="action" data-event="lunchIn">
-        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></span>
-        <span class="action-body">
-          <span class="action-label">На обед</span>
-          <span class="action-time" id="time-lunchIn">—</span>
-        </span>
-      </button>
-      <button class="action" data-event="lunchOut">
-        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 4 4v2"/></svg></span>
-        <span class="action-body">
-          <span class="action-label">С обеда</span>
-          <span class="action-time" id="time-lunchOut">—</span>
-        </span>
-      </button>
-      <button class="action" data-event="end">
-        <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg></span>
-        <span class="action-body">
-          <span class="action-label">Закончить</span>
-          <span class="action-time" id="time-end">—</span>
-        </span>
-      </button>
+    <!-- Block 1: Смена -->
+    <div class="time-block">
+      <div class="time-block-title">
+        <span>Смена</span>
+        <span class="time-block-duration" id="dur-shift"></span>
+      </div>
+      <div class="time-pair">
+        <div class="time-field">
+          <span class="time-field-label">Начало</span>
+          <div class="time-input-row" data-field="start">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+        <div class="time-field">
+          <span class="time-field-label">Конец</span>
+          <div class="time-input-row" data-field="end">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+      </div>
     </div>
 
-    <details>
-      <summary>Подправить время вручную</summary>
-      <div class="edit-grid">
-        <label>Старт<input type="time" id="edit-start"></label>
-        <label>На обед<input type="time" id="edit-lunchIn"></label>
-        <label>С обеда<input type="time" id="edit-lunchOut"></label>
-        <label>Конец<input type="time" id="edit-end"></label>
+    <!-- Block 2: Обед -->
+    <div class="time-block">
+      <div class="time-block-title">
+        <span>Обед</span>
+        <span class="time-block-duration" id="dur-lunch"></span>
       </div>
-    </details>
+      <div class="time-pair">
+        <div class="time-field">
+          <span class="time-field-label">Начало</span>
+          <div class="time-input-row" data-field="lunchIn">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+        <div class="time-field">
+          <span class="time-field-label">Конец</span>
+          <div class="time-input-row" data-field="lunchOut">
+            <input type="number" class="time-num" data-part="hh" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="23">
+            <span class="time-sep">:</span>
+            <input type="number" class="time-num" data-part="mm" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="––" min="0" max="59">
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="stats">
       <div class="stat">
@@ -544,8 +543,8 @@
       </div>
     </div>
 
-    <div style="margin-top: 16px; font-size: 12px; color: var(--text-faint); text-align: center;">
-      <span id="reset-link" style="cursor: pointer; text-decoration: underline; text-decoration-style: dotted;">Сбросить сегодняшнюю запись</span>
+    <div style="margin-top: 16px; text-align: center;">
+      <button type="button" id="reset-link" style="background: transparent; border: 1px solid var(--border-soft); color: var(--text-dim); padding: 10px 18px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit;">Сбросить сегодняшнюю запись</button>
     </div>
   </div>
 
@@ -659,8 +658,8 @@
    ========================================================= */
 const STORAGE_KEY = 'work-tracker-v1';
 const state = {
-  shifts: {}, // 'YYYY-MM-DD' -> { plan: '8:00', start, end, lunchIn, lunchOut, extra: bool }
-  currentMonth: null, // {y, m}
+  shifts: {},
+  currentMonth: null,
 };
 
 function load() {
@@ -715,7 +714,7 @@ function workMinutes(shift) {
   const s = parseTime(shift.start), e = parseTime(shift.end);
   if (s == null || e == null) return null;
   let w = e - s;
-  if (w < 0) w += 24*60; // ночная смена
+  if (w < 0) w += 24*60;
   const li = parseTime(shift.lunchIn), lo = parseTime(shift.lunchOut);
   if (li != null && lo != null) {
     let l = lo - li;
@@ -731,19 +730,177 @@ function lunchMinutes(shift) {
   if (l < 0) l += 24*60;
   return l;
 }
+function pairDuration(a, b) {
+  const x = parseTime(a), y = parseTime(b);
+  if (x == null || y == null) return null;
+  let d = y - x;
+  if (d < 0) d += 24*60;
+  return d;
+}
 
 const MONTH_NAMES_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DAY_NAMES_RU = ['вс','пн','вт','ср','чт','пт','сб'];
 
 /* =========================================================
-   TODAY VIEW
+   TIME INPUT HELPERS — split HH:MM with numeric keyboard
    ========================================================= */
-function getTodayShift() {
-  const k = todayKey();
-  if (!state.shifts[k]) state.shifts[k] = {};
-  return state.shifts[k];
+const FIELD_ORDER = ['start', 'end', 'lunchIn', 'lunchOut'];
+
+function getInputRow(field) {
+  return document.querySelector(`.time-input-row[data-field="${field}"]`);
+}
+function focusFieldHH(field) {
+  const row = getInputRow(field);
+  if (!row) return;
+  const hh = row.querySelector('[data-part="hh"]');
+  if (hh) {
+    hh.focus();
+    try { hh.select(); } catch(_) {}
+  }
+}
+function nextFieldOf(field) {
+  const i = FIELD_ORDER.indexOf(field);
+  if (i === -1 || i === FIELD_ORDER.length - 1) return null;
+  return FIELD_ORDER[i + 1];
+}
+function setRowValue(field, timeStr) {
+  // timeStr: "HH:MM" or null/empty
+  const row = getInputRow(field);
+  if (!row) return;
+  const hhInp = row.querySelector('[data-part="hh"]');
+  const mmInp = row.querySelector('[data-part="mm"]');
+  if (timeStr) {
+    const [h, m] = timeStr.split(':');
+    hhInp.value = h;
+    mmInp.value = m;
+    row.classList.add('filled');
+  } else {
+    hhInp.value = '';
+    mmInp.value = '';
+    row.classList.remove('filled');
+  }
+}
+function readRowValue(field) {
+  const row = getInputRow(field);
+  if (!row) return null;
+  const hhInp = row.querySelector('[data-part="hh"]');
+  const mmInp = row.querySelector('[data-part="mm"]');
+  const h = hhInp.value.trim();
+  const m = mmInp.value.trim();
+  if (h === '' && m === '') return null;
+  if (h === '' || m === '') return undefined; // partial — not yet valid
+  const hi = parseInt(h, 10);
+  const mi = parseInt(m, 10);
+  if (isNaN(hi) || isNaN(mi)) return undefined;
+  if (hi < 0 || hi > 23 || mi < 0 || mi > 59) return undefined;
+  return pad(hi) + ':' + pad(mi);
 }
 
+function commitField(field) {
+  const v = readRowValue(field);
+  if (v === undefined) return; // partial input — wait
+  const k = todayKey();
+  if (v === null) {
+    // user cleared the field: don't create a record just to delete a non-existent key
+    if (state.shifts[k]) {
+      delete state.shifts[k][field];
+      // if the record is now empty (no real fields), drop it entirely
+      const remaining = Object.keys(state.shifts[k]).filter(x => state.shifts[k][x]);
+      if (remaining.length === 0) delete state.shifts[k];
+    }
+  } else {
+    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
+    state.shifts[k][field] = v;
+  }
+  save();
+  renderToday();
+  renderMonth();
+}
+
+function setupTimeInput(row) {
+  const field = row.dataset.field;
+  const hhInp = row.querySelector('[data-part="hh"]');
+  const mmInp = row.querySelector('[data-part="mm"]');
+
+  // Track whether the field was empty when user started entering — so we only
+  // auto-advance to the next block when filling for the first time, not when
+  // editing an existing value.
+  let wasEmptyOnFocus = false;
+
+  [hhInp, mmInp].forEach(inp => {
+    inp.addEventListener('focus', () => {
+      row.classList.add('focus-within');
+      // capture emptiness when focus lands anywhere in this row
+      const k = todayKey();
+      const s = state.shifts[k] || {};
+      if (!s[field]) wasEmptyOnFocus = true;
+      try { inp.select(); } catch(_) {}
+    });
+    inp.addEventListener('blur', () => {
+      row.classList.remove('focus-within');
+      if (inp.value.length === 1) inp.value = '0' + inp.value;
+      commitField(field);
+    });
+  });
+
+  hhInp.addEventListener('input', () => {
+    let v = hhInp.value.replace(/[^\d]/g, '');
+    if (v.length > 2) v = v.slice(0, 2);
+    if (v.length === 2 && parseInt(v, 10) > 23) {
+      v = v.slice(-1);
+    }
+    hhInp.value = v;
+    if (v.length === 2) {
+      mmInp.focus();
+    } else {
+      commitField(field);
+    }
+  });
+
+  mmInp.addEventListener('input', () => {
+    let v = mmInp.value.replace(/[^\d]/g, '');
+    if (v.length > 2) v = v.slice(0, 2);
+    if (v.length === 2 && parseInt(v, 10) > 59) {
+      v = v.slice(-1);
+    }
+    mmInp.value = v;
+    if (v.length === 2) {
+      // Field is now fully filled. If it was empty when user started typing,
+      // jump to the next field in the sequence so they can keep entering
+      // without tapping anywhere.
+      if (wasEmptyOnFocus) {
+        const next = nextFieldOf(field);
+        wasEmptyOnFocus = false;
+        if (next) {
+          // commit current field first, then move focus
+          commitField(field);
+          // small timeout to let blur/commit settle and (on mobile) keep keyboard open
+          setTimeout(() => focusFieldHH(next), 0);
+        } else {
+          mmInp.blur(); // last field — close keyboard
+        }
+      } else {
+        // Editing an existing value — just close keyboard
+        mmInp.blur();
+      }
+    }
+  });
+
+  // Backspace on empty MM → jump back to HH
+  mmInp.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace' && mmInp.value === '') {
+      hhInp.focus();
+      setTimeout(() => {
+        const len = hhInp.value.length;
+        try { hhInp.setSelectionRange(len, len); } catch(_) {}
+      }, 0);
+    }
+  });
+}
+
+/* =========================================================
+   TODAY VIEW
+   ========================================================= */
 function renderToday() {
   const k = todayKey();
   const s = state.shifts[k] || {};
@@ -755,20 +912,28 @@ function renderToday() {
   document.getElementById('header-info').textContent =
     pad(d.getHours()) + ':' + pad(d.getMinutes());
 
+  // Update time inputs (only if not currently focused, to not break user typing)
   ['start','lunchIn','lunchOut','end'].forEach(field => {
-    const t = s[field] || '—';
-    document.getElementById('time-' + field).textContent = t;
-    document.getElementById('edit-' + field).value = s[field] || '';
-    const btn = document.querySelector(`.action[data-event="${field}"]`);
-    btn.classList.toggle('done', !!s[field]);
+    const row = getInputRow(field);
+    if (!row) return;
+    const focused = row.contains(document.activeElement);
+    if (!focused) {
+      setRowValue(field, s[field] || null);
+    }
+    row.classList.toggle('filled', !!s[field]);
   });
 
+  // Pair durations
+  const shiftDur = pairDuration(s.start, s.end);
+  const lunchDur = pairDuration(s.lunchIn, s.lunchOut);
+  document.getElementById('dur-shift').textContent = shiftDur != null ? fmtMin(shiftDur) : '';
+  document.getElementById('dur-lunch').textContent = lunchDur != null ? fmtMin(lunchDur) : '';
+
   const w = workMinutes(s);
-  const l = lunchMinutes(s);
   const planMin = parseTime(s.plan);
 
   document.getElementById('stat-worked').textContent = w != null ? fmtMin(w) : '00:00';
-  document.getElementById('stat-lunch').textContent = l != null ? fmtMin(l) : '00:00';
+  document.getElementById('stat-lunch').textContent = lunchDur != null ? fmtMin(lunchDur) : '00:00';
 
   const deltaEl = document.getElementById('stat-delta');
   if (w != null && planMin != null) {
@@ -789,7 +954,6 @@ function renderToday() {
     status.textContent = 'Смена закончена';
     status.classList.remove('active');
   } else if (s.start) {
-    // live counter
     const now = pad(d.getHours()) + ':' + pad(d.getMinutes());
     const liveShift = { ...s, end: now };
     const lw = workMinutes(liveShift);
@@ -802,16 +966,6 @@ function renderToday() {
     status.textContent = 'Ещё не начат';
     status.classList.remove('active');
   }
-}
-
-function recordEvent(field) {
-  const k = todayKey();
-  if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
-  state.shifts[k][field] = nowTimeStr();
-  save();
-  renderToday();
-  renderMonth();
-  showToast('Записано: ' + nowTimeStr());
 }
 
 /* =========================================================
@@ -878,7 +1032,6 @@ function renderMonth() {
     tbody.appendChild(tr);
   }
 
-  // Stats view
   document.getElementById('m-plan').textContent = fmtMin(totalPlan);
   document.getElementById('m-worked').textContent = fmtMin(totalWorked);
   const md = totalWorked - planForWorkedDays;
@@ -924,7 +1077,6 @@ function saveShift() {
     lunchOut: document.getElementById('shift-lunchOut').value || null,
     extra: document.getElementById('shift-extra').checked,
   };
-  // remove nulls
   Object.keys(data).forEach(k => { if (data[k] == null || data[k] === false) delete data[k]; });
   if (editingDate && editingDate !== newDate) {
     delete state.shifts[editingDate];
@@ -959,19 +1111,11 @@ function importPastedText(text) {
   const lines = text.split('\n');
   let imported = 0;
 
-  // Pattern A: "3 72 03 1 9:00"  → day, ?, ?, shift, hours
-  // Pattern B: "1 Vaba päev"      → day, "Vaba päev" = day off
-  // Pattern C: "3 9:00"            → day + plan hours (simplified)
-  // Pattern D: "1.05.2026 9:00"   → date + hours
-
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-
-    // skip header lines
     if (/^(KUUGRAAFIK|Kuu|Liin|Vahetus|Kokku|date|plan|mobis)/i.test(trimmed)) continue;
 
-    // Pattern: dd.mm.yyyy followed by H:MM
     let match = trimmed.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})\s+.*?(\d{1,2}):(\d{2})/);
     if (match) {
       const day = parseInt(match[1]);
@@ -984,12 +1128,8 @@ function importPastedText(text) {
       continue;
     }
 
-    // Pattern: starts with day number, contains "Vaba päev" or "Reservis" → no work day, skip
-    if (/^(\d{1,2})\s+(Vaba\s*p|Vaba päev|Free)/i.test(trimmed)) {
-      continue;
-    }
+    if (/^(\d{1,2})\s+(Vaba\s*p|Vaba päev|Free)/i.test(trimmed)) continue;
 
-    // Pattern: day number followed by H:MM somewhere on the line
     match = trimmed.match(/^(\d{1,2})\s+.*?(\d{1,2}):(\d{2})\s*$/);
     if (match) {
       const day = parseInt(match[1]);
@@ -1059,31 +1199,23 @@ document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => switchView(t.dataset.view));
 });
 
-document.querySelectorAll('.action').forEach(btn => {
-  btn.addEventListener('click', () => recordEvent(btn.dataset.event));
-});
-
-['start','lunchIn','lunchOut','end'].forEach(field => {
-  document.getElementById('edit-' + field).addEventListener('change', (ev) => {
-    const k = todayKey();
-    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
-    if (ev.target.value) {
-      state.shifts[k][field] = ev.target.value;
-    } else {
-      delete state.shifts[k][field];
-    }
-    save();
-    renderToday();
-    renderMonth();
-  });
-});
+// Setup all time-input rows
+document.querySelectorAll('.time-input-row').forEach(setupTimeInput);
 
 document.getElementById('reset-link').addEventListener('click', () => {
+  // Drop focus from any active time input so its blur handler doesn't
+  // re-create the record while we're trying to delete it.
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
   if (confirm('Сбросить запись за сегодня?')) {
     delete state.shifts[todayKey()];
     save();
+    // Clear inputs explicitly — defence in depth in case anything else holds state
+    FIELD_ORDER.forEach(f => setRowValue(f, null));
     renderToday();
     renderMonth();
+    showToast('Сброшено');
   }
 });
 
@@ -1133,14 +1265,12 @@ document.getElementById('clear-btn').addEventListener('click', () => {
   }
 });
 
-// Backdrop close
 document.querySelectorAll('.modal-backdrop').forEach(b => {
   b.addEventListener('click', (e) => {
     if (e.target === b) b.classList.remove('show');
   });
 });
 
-// Install hint (iOS Safari has no beforeinstallprompt; show a generic hint once)
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 if (!isStandalone && !localStorage.getItem('install-dismissed')) {
   document.getElementById('install-hint').classList.add('show');
@@ -1158,7 +1288,6 @@ const now = new Date();
 setCurrentMonth(now.getFullYear(), now.getMonth());
 renderToday();
 
-// live timer for "in progress"
 setInterval(() => {
   const k = todayKey();
   const s = state.shifts[k];
