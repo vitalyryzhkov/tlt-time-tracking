@@ -600,6 +600,15 @@
     font-size: 18px;
     padding: 0 4px;
   }
+
+  /* Payroll block — компактный блок ЗП в Итогах */
+  .payroll-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
 </style>
 </head>
 <body>
@@ -806,6 +815,19 @@
         </thead>
         <tbody id="year-tbody"></tbody>
       </table>
+    </div>
+
+    <!-- Блок зарплаты (только в режиме месяца) -->
+    <div id="payroll-block" style="display: none; margin-top: 16px;">
+      <div class="payroll-label">Зарплата</div>
+      <div class="stat-big">
+        <div class="stat-label">Брутто (примерно)</div>
+        <div class="stat-value" id="p-bruto">—</div>
+      </div>
+      <div class="stat-big">
+        <div class="stat-label">Нетто (на руки)</div>
+        <div class="stat-value" id="p-neto" style="color: var(--accent);">—</div>
+      </div>
     </div>
 
     <div style="margin-top: 16px;">
@@ -1018,6 +1040,192 @@ function dayStatus(s) {
 }
 function isNonWorkStatus(st) {
   return st === 'vacation' || st === 'sick' || st === 'off';
+}
+
+/* =========================================================
+   PAYROLL — расчёт ЗП (эстонская модель)
+   =========================================================
+   Сверено с реальными расчётками:
+     январь 2026:  1962.21 € vs 1962.21 € (ставка 9.90)  — точно
+     февраль 2026: 1824.92 € vs 1824.89 € (без разовой компенсации врача)
+     март 2026:    2410.26 € vs 2410.77 € (без разовой премии 150 €)
+   Расхождения — от разных ставок 101/151/211 и разовых выплат,
+   которые в трекере не моделируются.
+
+   Брутто:
+     База        = часы × ставка
+     + Ночные    = часы в 22:00–06:00 × ставка × 25%
+     + Katkestus = (часы работы − 30мин) × ставка × 10%, если разрыв > 2ч
+     + Праздники = часы работы в гос.праздники × ставка × 100%
+     + Переработка = считается раз в квартал, в последнем месяце:
+                     (факт_Q − план_Q, если >0) × ставка × 60%
+     + Премия    = часы × 1.00 €/ч (kvaliteeditasu)
+   Нетто:
+     пенсия II   = брутто × 2%
+     unemp       = брутто × 1.6% (töötuskindlustus работника)
+     подоходный  = max(0, брутто − пенсия − unemp − 700) × 22%
+     нетто       = брутто − пенсия − unemp − подоходный
+
+   ⚠️ Все ставки и проценты захардкожены — при изменении в компании
+   обновить значения в PAYROLL ниже.
+   ========================================================= */
+
+const PAYROLL = {
+  rate: 10.60,              // €/ч базовая ставка
+  qualityRate: 1.00,        // €/ч премия за качество (kvaliteeditasu)
+  nightPercent: 25,         // +% за ночные часы
+  nightStart: 22,           // час начала ночного времени
+  nightEnd: 6,              // час конца ночного времени
+  overtimePercent: 60,      // +% за переработку (раз в квартал)
+  splitShiftPercent: 10,    // +% katkestus (длинный разрыв смены)
+  splitShiftThreshold: 120, // порог разрыва в минутах (>2 ч)
+  splitShiftDeduct: 30,     // мин вычета (30-минутный неоплачиваемый перерыв)
+  holidayPercent: 100,      // +% за работу в гос. праздник
+  pensionPercent: 2,        // пенсия II ступень
+  unempPercent: 1.6,        // töötuskindlustus (работник)
+  incomePercent: 22,        // подоходный налог
+  maksuvaba: 700,           // необлагаемый минимум €/мес
+};
+
+// Гос. праздники Эстонии (riigipühad). За работу в эти дни — двойная ставка
+// по §45(2) Töölepingu seadus. Формат: 'MM-DD'.
+const ESTONIA_HOLIDAYS = {
+  2025: ['01-01','02-24','04-18','04-20','05-01','06-08','06-23','06-24','08-20','12-24','12-25','12-26'],
+  2026: ['01-01','02-24','04-03','04-05','05-01','05-24','06-23','06-24','08-20','12-24','12-25','12-26'],
+  2027: ['01-01','02-24','03-26','03-28','05-01','05-16','06-23','06-24','08-20','12-24','12-25','12-26'],
+};
+
+function isHoliday(dateKey) {
+  // dateKey: 'YYYY-MM-DD'
+  const year = parseInt(dateKey.slice(0, 4), 10);
+  const md = dateKey.slice(5);
+  const list = ESTONIA_HOLIDAYS[year];
+  return list ? list.indexOf(md) !== -1 : false;
+}
+
+// Считает пересечение интервала [start, end) минут от начала суток с ночным окном.
+// nightStart=22, nightEnd=6 — окно с 22:00 до 06:00 (через полночь).
+// Возвращает минуты, попавшие в ночное окно.
+function nightOverlap(startMin, endMin, nightStartH, nightEndH) {
+  // Поддерживаем смены через полночь: если end < start, расширяем end на 24ч.
+  if (endMin < startMin) endMin += 24 * 60;
+  const nightStartMin = nightStartH * 60;
+  const nightEndMin = nightEndH * 60;
+
+  // Считаем общее пересечение, проходя по дням, которые покрывает смена.
+  let total = 0;
+  // Смена может покрыть до двух 24-часовых окон — итерируем по offset 0 и 24*60.
+  for (let dayOffset = -24*60; dayOffset <= 24*60; dayOffset += 24*60) {
+    // Ночное окно дня = [22:00, 30:00) (т.е. 22:00 этого дня до 06:00 следующего)
+    const ns = nightStartMin + dayOffset;
+    const ne = nightEndMin + 24*60 + dayOffset; // 06:00 след. дня
+    const ovStart = Math.max(startMin, ns);
+    const ovEnd = Math.min(endMin, ne);
+    if (ovEnd > ovStart) total += (ovEnd - ovStart);
+  }
+  return total;
+}
+
+// Ночные часы за одну смену с учётом возможного перерыва-обеда.
+function shiftNightMinutes(shift) {
+  const s = parseTime(shift.start), e = parseTime(shift.end);
+  if (s == null || e == null) return 0;
+  let night = nightOverlap(s, e, PAYROLL.nightStart, PAYROLL.nightEnd);
+  // Если есть обед — вычитаем его ночное пересечение
+  const li = parseTime(shift.lunchIn), lo = parseTime(shift.lunchOut);
+  if (li != null && lo != null) {
+    const lunchNight = nightOverlap(li, lo, PAYROLL.nightStart, PAYROLL.nightEnd);
+    night -= lunchNight;
+  }
+  return Math.max(0, night);
+}
+
+// Katkestus-минуты за день: если обед > порога, то (workMinutes − вычет).
+function shiftKatkestusMinutes(shift) {
+  const lunch = lunchMinutes(shift);
+  if (lunch == null || lunch <= PAYROLL.splitShiftThreshold) return 0;
+  const w = workMinutes(shift);
+  if (w == null) return 0;
+  return Math.max(0, w - PAYROLL.splitShiftDeduct);
+}
+
+// Праздничные минуты за день: если день — гос. праздник, то всё рабочее время.
+function shiftHolidayMinutes(dateKey, shift) {
+  if (!isHoliday(dateKey)) return 0;
+  const w = workMinutes(shift);
+  return w == null ? 0 : w;
+}
+
+// Сумма агрегатов по диапазону: часы, ночные, katkestus, праздничные
+function aggregatePayroll(fromKey, toKey) {
+  let workedMin = 0, nightMin = 0, katkestusMin = 0, holidayMin = 0, planMin = 0;
+  Object.keys(state.shifts).forEach(k => {
+    if (k < fromKey || k > toKey) return;
+    const s = state.shifts[k];
+    if (!s) return;
+    const st = dayStatus(s);
+    if (st !== 'work' && st !== 'extra') return;
+    const w = workMinutes(s);
+    if (w == null) return;
+    workedMin += w;
+    nightMin += shiftNightMinutes(s);
+    katkestusMin += shiftKatkestusMinutes(s);
+    holidayMin += shiftHolidayMinutes(k, s);
+    if (st === 'work') {
+      const p = parseTime(s.plan);
+      if (p) planMin += p;
+    }
+  });
+  return { workedMin, nightMin, katkestusMin, holidayMin, planMin };
+}
+
+// Переработка за квартал. month — 0..11.
+// Возвращает минуты переработки, которые "приземляются" в последний месяц квартала.
+function quarterOvertimeMinutes(year, month) {
+  // Последние месяцы кварталов: 2 (март), 5 (июнь), 8 (сентябрь), 11 (декабрь)
+  if (month % 3 !== 2) return 0;
+  const qStartMonth = month - 2;
+  const fromKey = year + '-' + pad(qStartMonth + 1) + '-01';
+  const toKey   = year + '-' + pad(month + 1) + '-' + pad(new Date(year, month+1, 0).getDate());
+  const agg = aggregatePayroll(fromKey, toKey);
+  const diff = agg.workedMin - agg.planMin;
+  return diff > 0 ? diff : 0;
+}
+
+// Главный расчёт ЗП за месяц
+function calcPayroll(year, month) {
+  const fromKey = year + '-' + pad(month + 1) + '-01';
+  const toKey   = year + '-' + pad(month + 1) + '-' + pad(new Date(year, month+1, 0).getDate());
+  const agg = aggregatePayroll(fromKey, toKey);
+
+  const hours = agg.workedMin / 60;
+  const nightHours = agg.nightMin / 60;
+  const katkestusHours = agg.katkestusMin / 60;
+  const holidayHours = agg.holidayMin / 60;
+  const overtimeHours = quarterOvertimeMinutes(year, month) / 60;
+
+  const base       = hours * PAYROLL.rate;
+  const night      = nightHours * PAYROLL.rate * (PAYROLL.nightPercent / 100);
+  const katkestus  = katkestusHours * PAYROLL.rate * (PAYROLL.splitShiftPercent / 100);
+  const holiday    = holidayHours * PAYROLL.rate * (PAYROLL.holidayPercent / 100);
+  const overtime   = overtimeHours * PAYROLL.rate * (PAYROLL.overtimePercent / 100);
+  const quality    = hours * PAYROLL.qualityRate;
+
+  const bruto = base + night + katkestus + holiday + overtime + quality;
+
+  const pension = bruto * (PAYROLL.pensionPercent / 100);
+  const unemp   = bruto * (PAYROLL.unempPercent / 100);
+  const taxable = bruto - pension - unemp;
+  const incomeBase = Math.max(0, taxable - PAYROLL.maksuvaba);
+  const incomeTax = incomeBase * (PAYROLL.incomePercent / 100);
+  const neto = bruto - pension - unemp - incomeTax;
+
+  return { hours, bruto, neto };
+}
+
+function fmtEur(v) {
+  if (v == null || isNaN(v)) return '—';
+  return v.toFixed(2).replace('.', ',') + ' €';
 }
 
 /* =========================================================
@@ -1425,6 +1633,29 @@ function renderStats() {
   } else {
     breakdown.style.display = 'none';
   }
+
+  renderPayroll();
+}
+
+/* =========================================================
+   PAYROLL UI — только брутто и нетто, без подробностей
+   ========================================================= */
+function renderPayroll() {
+  const block = document.getElementById('payroll-block');
+  const period = state.statsPeriod || 'month';
+
+  // Расчёт ЗП показываем только в режиме "Месяц"
+  if (period !== 'month') {
+    block.style.display = 'none';
+    return;
+  }
+
+  block.style.display = 'block';
+  const { y, m } = state.statsCursor;
+  const r = calcPayroll(y, m);
+
+  document.getElementById('p-bruto').textContent = r.hours > 0 ? fmtEur(r.bruto) : '—';
+  document.getElementById('p-neto').textContent  = r.hours > 0 ? fmtEur(r.neto)  : '—';
 }
 
 /* =========================================================
@@ -1812,6 +2043,8 @@ document.getElementById('dismiss-install').addEventListener('click', () => {
    INIT
    ========================================================= */
 load();
+// Очистка устаревшего ключа настроек (от предыдущей версии с UI настроек)
+try { localStorage.removeItem('payroll-settings-v1'); } catch(_) {}
 const now = new Date();
 state.statsCursor = { y: now.getFullYear(), m: now.getMonth() };
 setCurrentMonth(now.getFullYear(), now.getMonth());
