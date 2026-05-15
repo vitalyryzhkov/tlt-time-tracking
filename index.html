@@ -221,6 +221,54 @@
     font-size: 13px;
   }
 
+  /* Поиск автобуса по номеру */
+  .bus-search {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+  .bus-search input {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 15px;
+    font-family: inherit;
+    text-align: center;
+    letter-spacing: 0.05em;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .bus-search input::placeholder { color: var(--text-faint); letter-spacing: 0; font-size: 13px; }
+  .bus-search input:focus { border-color: var(--accent-dim); }
+  .bus-search button {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .bus-search button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .bus-search button:not(:disabled) {
+    background: var(--accent-dim);
+    border-color: var(--accent-dim);
+    color: var(--text);
+  }
+  .bus-search button:not(:disabled):active { transform: scale(0.97); }
+
   /* Overtime toggle on Today view */
   .overtime-toggle {
     display: flex;
@@ -801,6 +849,11 @@
         <input type="checkbox" id="accordion-check">
         <span class="accordion-toggle-text">Гармошка</span>
       </label>
+    </div>
+
+    <div class="bus-search">
+      <input type="text" id="bus-number-input" inputmode="numeric" pattern="[0-9]*" placeholder="🚌 номер автобуса" maxlength="6" autocomplete="off">
+      <button type="button" id="bus-search-btn" disabled>Поиск</button>
     </div>
 
     <div class="stats">
@@ -2327,6 +2380,42 @@ document.getElementById('accordion-check').addEventListener('change', (e) => {
   renderMonth();
   showToast(checked ? 'Включена ставка гармошки' : 'Обычная ставка', 1500);
 });
+
+// Поиск автобуса по номеру на ebus.ee
+(function setupBusSearch() {
+  const input = document.getElementById('bus-number-input');
+  const btn = document.getElementById('bus-search-btn');
+  if (!input || !btn) return;
+
+  function isValid() {
+    return /^\d{1,6}$/.test(input.value.trim());
+  }
+  function updateBtn() {
+    btn.disabled = !isValid();
+  }
+  function doSearch() {
+    if (!isValid()) return;
+    const n = encodeURIComponent(input.value.trim());
+    const url = 'https://ebus.ee/index.php?a=search_db&name=' + n + '&status=1';
+    // Открываем в новой вкладке/окне
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  // Фильтр ввода: только цифры
+  input.addEventListener('input', () => {
+    const cleaned = input.value.replace(/\D/g, '');
+    if (cleaned !== input.value) input.value = cleaned;
+    updateBtn();
+  });
+  // Enter в поле = поиск
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      doSearch();
+    }
+  });
+  btn.addEventListener('click', doSearch);
+})();
 
 document.getElementById('prev-month').addEventListener('click', () => {
   const { y, m } = state.currentMonth;
