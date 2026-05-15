@@ -202,6 +202,25 @@
   }
 
 
+  /* Wrapper: подработка + гармошка в одну строку */
+  .flag-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .flag-row .overtime-toggle,
+  .flag-row .accordion-toggle {
+    margin-bottom: 0;
+    justify-content: center;
+    padding: 12px 10px;
+    gap: 8px;
+  }
+  .flag-row .overtime-toggle-text,
+  .flag-row .accordion-toggle-text {
+    font-size: 13px;
+  }
+
   /* Overtime toggle on Today view */
   .overtime-toggle {
     display: flex;
@@ -264,6 +283,80 @@
   }
   @media (max-width: 420px) {
     .overtime-toggle-hint { display: none; }
+  }
+
+  /* Accordion toggle (повышенная ставка) — рядом с подработкой */
+  .accordion-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .accordion-toggle:active { transform: scale(0.99); }
+  .accordion-toggle.active {
+    background: rgba(212, 165, 67, 0.10);
+    border-color: rgba(212, 165, 67, 0.4);
+  }
+  .accordion-toggle input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    margin: 0;
+    transition: all 0.15s;
+  }
+  .accordion-toggle input[type="checkbox"]:checked {
+    background: var(--warning);
+    border-color: var(--warning);
+  }
+  .accordion-toggle input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 12px;
+    border: solid #1a1305;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg);
+  }
+  .accordion-toggle-text {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .accordion-toggle.active .accordion-toggle-text { color: #e3bf6b; }
+  .accordion-toggle-hint {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-left: auto;
+  }
+  @media (max-width: 420px) {
+    .accordion-toggle-hint { display: none; }
+  }
+
+  /* Route info — мелкая инфа под номером дня */
+  .day-route {
+    display: block;
+    font-size: 10px;
+    color: var(--info);
+    font-weight: 500;
+    margin-top: 1px;
+    letter-spacing: 0.02em;
   }
 
   /* Stats grid */
@@ -384,6 +477,10 @@
   }
   .month-table tr.today td { background: rgba(84, 181, 120, 0.05); }
   .month-table tr:hover td { background: var(--bg-elevated); cursor: pointer; }
+  .month-table tr.row-unconfirmed td { color: var(--text-faint); font-style: italic; }
+  .month-table tr.row-unconfirmed .day-route { opacity: 0.55; }
+  .month-table tr.row-unconfirmed .pos,
+  .month-table tr.row-unconfirmed .neg { color: var(--text-faint); }
   .month-table .num { text-align: right; }
   .month-table .dim { color: var(--text-dim); }
   .month-table .pos { color: var(--accent); }
@@ -436,6 +533,7 @@
   .badge.sick { background: rgba(217, 119, 87, 0.18); color: var(--danger); }
   .badge.off { background: rgba(107, 163, 214, 0.15); color: var(--info); }
   .badge.extra { background: rgba(177, 118, 214, 0.18); color: #c592e0; }
+  .badge.reserve { background: rgba(138, 150, 163, 0.15); color: var(--text-dim); }
 
   /* Stats view */
   .period-switch {
@@ -616,7 +714,6 @@
 <div class="app">
   <div class="header">
     <h1>TLT Tracker</h1>
-    <div class="header-info" id="header-info">—</div>
   </div>
 
   <div class="install-hint" id="install-hint">
@@ -636,6 +733,7 @@
       <div class="today-meta">
         <span id="today-date">—</span>
         <span>план <span id="today-plan" style="color: var(--text); font-weight: 500;">—</span></span>
+        <span id="today-route" style="display:none; color: var(--info); font-weight: 500;"></span>
       </div>
       <div class="today-elapsed" id="today-elapsed">00:00</div>
       <div class="today-status" id="today-status">Ещё не начат</div>
@@ -693,11 +791,17 @@
       </div>
     </div>
 
-    <label class="overtime-toggle" id="overtime-toggle">
-      <input type="checkbox" id="overtime-check">
-      <span class="overtime-toggle-text">Подработка</span>
-      <span class="overtime-toggle-hint">пометить смену как дополнительную</span>
-    </label>
+    <div class="flag-row">
+      <label class="overtime-toggle" id="overtime-toggle">
+        <input type="checkbox" id="overtime-check">
+        <span class="overtime-toggle-text">Подработка</span>
+      </label>
+
+      <label class="accordion-toggle" id="accordion-toggle">
+        <input type="checkbox" id="accordion-check">
+        <span class="accordion-toggle-text">Гармошка</span>
+      </label>
+    </div>
 
     <div class="stats">
       <div class="stat">
@@ -732,6 +836,7 @@
     <div class="toolbar">
       <button class="btn btn-primary" id="add-shift-btn">+ Смена</button>
       <button class="btn" id="paste-btn">📋 Вставить график</button>
+      <button class="btn" id="clear-import-btn" title="Удалить импортированные записи за этот месяц (подтверждённые не тронутся)">🧹 Очистить график</button>
     </div>
 
     <table class="month-table">
@@ -900,6 +1005,11 @@
           </div>
         </div>
       </div>
+
+      <label class="accordion-toggle" id="modal-accordion-toggle" style="margin-top: 14px;">
+        <input type="checkbox" id="modal-accordion-check">
+        <span class="accordion-toggle-text">Гармошка</span>
+      </label>
     </div>
 
     <div class="modal-actions">
@@ -1031,6 +1141,7 @@ const STATUS_LABELS = {
   vacation: 'Отпуск',
   sick: 'Больничный',
   off: 'Выходной',
+  reserve: 'Резерв',
 };
 function dayStatus(s) {
   if (!s) return null;
@@ -1039,7 +1150,7 @@ function dayStatus(s) {
   return 'work';
 }
 function isNonWorkStatus(st) {
-  return st === 'vacation' || st === 'sick' || st === 'off';
+  return st === 'vacation' || st === 'sick' || st === 'off' || st === 'reserve';
 }
 
 /* =========================================================
@@ -1103,6 +1214,125 @@ function isHoliday(dateKey) {
   return list ? list.indexOf(md) !== -1 : false;
 }
 
+// Расписания смен по типам дней. Только маршрут+очередь+время.
+// Структура: SCHEDULES[type][route][order] = { 1: {s, e}, 2: {s, e} }
+// Длинные смены здесь не хранятся — они вводятся вручную.
+const SCHEDULES = {
+weekday: {
+  '1':{'1':{1:{s:'04:38',e:'14:47'},2:{s:'14:42',e:'01:08'}},'2':{1:{s:'04:50',e:'15:06'},2:{s:'15:01',e:'23:56'}},'3':{1:{s:'05:02',e:'15:25'},2:{s:'15:20',e:'01:27'}},'6':{1:{s:'05:43',e:'14:27'},2:{s:'14:22',e:'00:49'}}},
+  '2':{'2':{1:{s:'04:12',e:'14:55'},2:{s:'14:50',e:'01:14'}},'3':{1:{s:'04:35',e:'15:12'},2:{s:'15:07',e:'00:30'}},'4':{1:{s:'05:10',e:'13:12'},2:{s:'13:07',e:'21:18'}},'5':{1:{s:'06:15',e:'15:46'},2:{s:'15:41',e:'00:51'}}},
+  '4':{'1':{1:{s:'05:31',e:'15:15'},2:{s:'15:10',e:'00:15'}},'3':{1:{s:'06:14',e:'14:48'},2:{s:'14:43',e:'00:43'}}},
+  '5':{'2':{1:{s:'04:35',e:'13:26'},2:{s:'13:21',e:'22:33'}},'4':{1:{s:'04:56',e:'13:42'},2:{s:'13:37',e:'00:27'}},'6':{1:{s:'05:13',e:'13:58'},2:{s:'13:53',e:'00:40'}},'7':{1:{s:'05:21',e:'14:14'},2:{s:'14:09',e:'00:55'}},'8':{1:{s:'04:26',e:'14:43'},2:{s:'14:38',e:'01:12'}},'10':{1:{s:'05:31',e:'14:29'},2:{s:'14:24',e:'23:28'}},'11':{1:{s:'04:45',e:'14:58'},2:{s:'14:53',e:'00:30'}},'13':{1:{s:'06:05',e:'15:13'},2:{s:'15:08',e:'00:11'}}},
+  '10':{'1':{1:{s:'05:14',e:'14:27'},2:{s:'14:22',e:'00:55'}},'3':{1:{s:'05:35',e:'14:48'},2:{s:'14:43',e:'00:04'}},'4':{1:{s:'04:30',e:'15:08'},2:{s:'15:03',e:'00:22'}},'5':{1:{s:'06:08',e:'15:28'},2:{s:'15:23',e:'00:42'}},'6':{1:{s:'04:53',e:'15:48'},2:{s:'15:43',e:'01:02'}}},
+  '12':{'5':{1:{s:'04:51',e:'14:35'},2:{s:'14:30',e:'00:30'}},'10':{1:{s:'05:59',e:'15:43'},2:{s:'15:38',e:'23:14'}}},
+  '13':{'3':{1:{s:'05:19',e:'14:54'},2:{s:'14:49',e:'00:46'}}},
+  '16':{'1':{1:{s:'05:00',e:'14:39'},2:{s:'14:34',e:'00:26'}},'2':{1:{s:'06:48',e:'14:54'},2:{s:'14:49',e:'00:44'}},'3':{1:{s:'05:24',e:'15:09'},2:{s:'15:04',e:'23:23'}},'4':{1:{s:'05:48',e:'15:59'},2:{s:'15:54',e:'00:09'}},'6':{1:{s:'06:11',e:'15:41'},2:{s:'15:36',e:'00:49'}},'8':{1:{s:'05:07',e:'14:24'},2:{s:'14:19',e:'22:41'}},'9':{1:{s:'07:15',e:'15:25'},2:{s:'15:20',e:'01:02'}}},
+  '20':{'1':{1:{s:'05:04',e:'16:00'},2:{s:'15:55',e:'01:27'}},'2':{1:{s:'05:30',e:'14:17'},2:{s:'14:12',e:'00:01'}},'3':{1:{s:'05:55',e:'14:50'},2:{s:'14:45',e:'00:30'}},'4':{1:{s:'06:21',e:'15:22'},2:{s:'15:17',e:'00:59'}}},
+  '25':{'2':{1:{s:'05:38',e:'14:04'},2:{s:'13:59',e:'22:14'}},'6':{1:{s:'05:54',e:'15:29'},2:{s:'15:24',e:'00:24'}}},
+  '26':{'1':{1:{s:'04:46',e:'14:11'},2:{s:'14:06',e:'22:29'}},'2':{1:{s:'05:04',e:'14:38'},2:{s:'14:33',e:'22:58'}},'3':{1:{s:'05:22',e:'15:08'},2:{s:'15:03',e:'23:26'}}},
+  '27':{'1':{1:{s:'05:07',e:'15:35'},2:{s:'15:30',e:'00:11'}},'2':{1:{s:'05:28',e:'14:04'},2:{s:'13:59',e:'00:40'}},'4':{1:{s:'05:49',e:'14:35'},2:{s:'14:30',e:'23:16'}},'5':{1:{s:'05:08',e:'15:04'},2:{s:'14:59',e:'23:43'}}},
+  '33':{'1':{1:{s:'04:46',e:'13:58'},2:{s:'13:53',e:'23:07'}},'2':{1:{s:'05:24',e:'15:44'},2:{s:'15:39',e:'00:38'}},'4':{1:{s:'05:16',e:'14:33'},2:{s:'14:28',e:'00:17'}},'5':{1:{s:'04:33',e:'14:49'},2:{s:'14:44',e:'00:38'}},'6':{1:{s:'04:52',e:'15:08'},2:{s:'15:03',e:'23:59'}},'7':{1:{s:'05:05',e:'15:26'},2:{s:'15:21',e:'00:18'}}},
+  '35':{'2':{1:{s:'04:27',e:'13:47'},2:{s:'13:42',e:'23:23'}},'9':{1:{s:'04:49',e:'14:17'},2:{s:'14:12',e:'23:54'}}},
+  '42':{'4':{1:{s:'04:51',e:'14:21'},2:{s:'14:16',e:'23:59'}},'13':{1:{s:'05:56',e:'15:33'},2:{s:'15:28',e:'01:06'}}},
+  '54':{'1':{1:{s:'04:55',e:'14:55'},2:{s:'14:50',e:'00:28'}},'7':{1:{s:'05:53',e:'15:53'},2:{s:'15:48',e:'22:43'}},'9':{1:{s:'07:22',e:'14:19'},2:{s:'14:14',e:'00:05'}}},
+  '57':{'1':{1:{s:'05:14',e:'14:49'},2:{s:'14:44',e:'00:36'}},'2':{1:{s:'06:03',e:'14:24'},2:{s:'14:19',e:'22:44'}}},
+  '61':{'1':{1:{s:'05:41',e:'14:07'},2:{s:'14:02',e:'22:31'}},'3':{1:{s:'05:59',e:'14:25'},2:{s:'14:20',e:'00:04'}},'4':{1:{s:'06:32',e:'14:59'},2:{s:'14:54',e:'23:43'}},'5':{1:{s:'06:26',e:'14:42'},2:{s:'14:37',e:'00:23'}},'6':{1:{s:'06:53',e:'15:18'},2:{s:'15:13',e:'23:44'}}},
+  '62':{'1':{1:{s:'05:26',e:'14:17'},2:{s:'14:12',e:'23:09'}}},
+  '72':{'1':{1:{s:'04:32',e:'13:06'},2:{s:'13:01',e:'21:47'}},'2':{1:{s:'04:47',e:'14:36'},2:{s:'14:31',e:'00:22'}},'3':{1:{s:'06:04',e:'14:45'},2:{s:'14:40',e:'23:18'}},'4':{1:{s:'05:02',e:'14:54'},2:{s:'14:49',e:'00:36'}},'5':{1:{s:'06:18',e:'15:03'},2:{s:'14:58',e:'23:37'}},'6':{1:{s:'05:17',e:'15:12'},2:{s:'15:07',e:'00:50'}},'8':{1:{s:'05:27',e:'14:00'},2:{s:'13:55',e:'22:42'}},'9':{1:{s:'06:46',e:'15:30'},2:{s:'15:25',e:'23:56'}},'10':{1:{s:'05:37',e:'14:18'},2:{s:'14:13',e:'00:08'}}},
+  '73':{'1':{1:{s:'04:42',e:'14:39'},2:{s:'14:34',e:'00:23'}},'2':{1:{s:'05:33',e:'14:57'},2:{s:'14:52',e:'00:45'}},'4':{1:{s:'04:35',e:'13:44'},2:{s:'13:39',e:'22:16'}},'5':{1:{s:'05:58',e:'15:33'},2:{s:'15:28',e:'23:43'}},'6':{1:{s:'04:56',e:'14:21'},2:{s:'14:16',e:'00:43'}}},
+  '81':{'1':{1:{s:'04:47',e:'14:04'},2:{s:'13:59',e:'23:31'}},'2':{1:{s:'06:02',e:'15:31'},2:{s:'15:26',e:'00:47'}},'3':{1:{s:'05:02',e:'14:28'},2:{s:'14:23',e:'23:53'}},'5':{1:{s:'05:17',e:'14:40'},2:{s:'14:35',e:'00:05'}},'7':{1:{s:'05:32',e:'14:53'},2:{s:'14:48',e:'00:19'}},'8':{1:{s:'05:42',e:'15:05'},2:{s:'15:00',e:'00:32'}}},
+  '84':{'1':{1:{s:'04:52',e:'14:01'},2:{s:'13:56',e:'22:49'}},'2':{1:{s:'05:58',e:'15:20'},2:{s:'15:15',e:'00:49'}},'3':{1:{s:'05:10',e:'14:27'},2:{s:'14:22',e:'00:12'}},'5':{1:{s:'05:28',e:'14:54'},2:{s:'14:49',e:'00:30'}}},
+  '85':{'3':{1:{s:'05:01',e:'13:23'},2:{s:'13:18',e:'22:19'}}}
+},
+saturday: {
+  '1':{'1':{1:{s:'04:41',e:'14:42'},2:{s:'14:37',e:'00:58'}},'2':{1:{s:'05:03',e:'15:05'},2:{s:'15:00',e:'01:21'}},'3':{1:{s:'05:24',e:'15:29'},2:{s:'15:24',e:'00:15'}},'4':{1:{s:'05:45',e:'15:54'},2:{s:'15:49',e:'00:36'}}},
+  '2':{'2':{1:{s:'05:20',e:'15:22'},2:{s:'15:17',e:'01:13'}},'3':{1:{s:'04:36',e:'14:23'},2:{s:'14:18',e:'00:25'}},'4':{1:{s:'05:59',e:'16:03'},2:{s:'15:58',e:'00:49'}}},
+  '4':{'1':{1:{s:'06:31',e:'14:47'},2:{s:'14:42',e:'23:55'}},'2':{1:{s:'07:01',e:'15:14'},2:{s:'15:09',e:'00:22'}}},
+  '5':{'1':{1:{s:'04:35',e:'14:28'},2:{s:'14:23',e:'00:56'}},'2':{1:{s:'04:54',e:'14:45'},2:{s:'14:40',e:'01:13'}},'3':{1:{s:'04:50',e:'15:02'},2:{s:'14:57',e:'00:29'}},'4':{1:{s:'06:42',e:'15:20'},2:{s:'15:15',e:'00:06'}},'5':{1:{s:'05:09',e:'15:38'},2:{s:'15:33',e:'00:23'}},'6':{1:{s:'05:28',e:'16:11'},2:{s:'16:06',e:'00:40'}}},
+  '10':{'1':{1:{s:'04:42',e:'15:15'},2:{s:'15:10',e:'23:54'}},'2':{1:{s:'05:06',e:'15:33'},2:{s:'15:28',e:'00:12'}},'3':{1:{s:'05:29',e:'15:47'},2:{s:'15:42',e:'00:31'}},'4':{1:{s:'07:09',e:'16:03'},2:{s:'15:58',e:'00:51'}},'5':{1:{s:'05:50',e:'14:43'},2:{s:'14:38',e:'00:48'}}},
+  '12':{'3':{1:{s:'05:11',e:'14:19'},2:{s:'14:14',e:'23:37'}}},
+  '13':{'3':{1:{s:'05:01',e:'14:19'},2:{s:'14:14',e:'23:41'}},'7':{1:{s:'06:18',e:'15:38'},2:{s:'15:33',e:'00:46'}}},
+  '16':{'1':{1:{s:'04:59',e:'14:18'},2:{s:'14:13',e:'00:09'}},'2':{1:{s:'05:41',e:'14:54'},2:{s:'14:49',e:'00:27'}},'3':{1:{s:'05:20',e:'14:36'},2:{s:'14:31',e:'00:50'}},'4':{1:{s:'05:01',e:'15:28'},2:{s:'15:23',e:'00:46'}},'7':{1:{s:'06:17',e:'15:44'},2:{s:'15:39',e:'01:03'}}},
+  '18':{'1':{1:{s:'05:09',e:'14:08'},2:{s:'14:03',e:'22:19'}}},
+  '20':{'1':{1:{s:'07:40',e:'16:24'},2:{s:'16:19',e:'00:57'}},'2':{1:{s:'07:48',e:'15:24'},2:{s:'15:19',e:'00:10'}}},
+  '25':{'1':{1:{s:'05:59',e:'15:48'},2:{s:'15:43',e:'00:40'}}},
+  '26':{'1':{1:{s:'06:16',e:'15:29'},2:{s:'15:24',e:'23:25'}},'2':{1:{s:'05:19',e:'14:33'},2:{s:'14:28',e:'22:28'}},'3':{1:{s:'05:48',e:'15:03'},2:{s:'14:58',e:'22:57'}}},
+  '27':{'1':{1:{s:'05:19',e:'15:26'},2:{s:'15:21',e:'23:26'}},'2':{1:{s:'07:42',e:'16:05'},2:{s:'16:00',e:'00:24'}}},
+  '33':{'1':{1:{s:'04:44',e:'15:07'},2:{s:'15:02',e:'00:33'}},'2':{1:{s:'05:18',e:'14:31'},2:{s:'14:26',e:'01:01'}},'3':{1:{s:'04:34',e:'13:55'},2:{s:'13:50',e:'00:11'}},'4':{1:{s:'06:48',e:'15:25'},2:{s:'15:20',e:'00:50'}},'5':{1:{s:'04:56',e:'14:13'},2:{s:'14:08',e:'00:28'}},'6':{1:{s:'08:09',e:'16:46'},2:{s:'16:41',e:'00:44'}}},
+  '34':{'4':{1:{s:'05:57',e:'14:22'},2:{s:'14:17',e:'00:29'}}},
+  '35':{'4':{1:{s:'04:49',e:'13:54'},2:{s:'13:49',e:'00:56'}},'6':{1:{s:'04:27',e:'13:38'},2:{s:'13:33',e:'00:37'}}},
+  '42':{'4':{1:{s:'05:21',e:'14:57'},2:{s:'14:52',e:'00:22'}},'7':{1:{s:'05:51',e:'15:31'},2:{s:'15:26',e:'00:51'}}},
+  '57':{'1':{1:{s:'05:53',e:'15:06'},2:{s:'15:01',e:'00:17'}}},
+  '61':{'1':{1:{s:'06:33',e:'14:56'},2:{s:'14:51',e:'23:08'}},'2':{1:{s:'06:08',e:'15:41'},2:{s:'15:36',e:'23:53'}},'3':{1:{s:'07:01',e:'15:19'},2:{s:'15:14',e:'23:30'}},'4':{1:{s:'07:47',e:'16:04'},2:{s:'15:59',e:'00:18'}}},
+  '62':{'1':{1:{s:'06:35',e:'14:47'},2:{s:'14:42',e:'23:05'}}},
+  '72':{'1':{1:{s:'05:17',e:'15:01'},2:{s:'14:56',e:'00:34'}},'2':{1:{s:'05:32',e:'15:16'},2:{s:'15:11',e:'23:39'}},'3':{1:{s:'05:47',e:'15:31'},2:{s:'15:26',e:'00:50'}},'4':{1:{s:'06:02',e:'14:23'},2:{s:'14:18',e:'00:05'}},'5':{1:{s:'06:17',e:'16:01'},2:{s:'15:56',e:'00:19'}}},
+  '73':{'1':{1:{s:'05:49',e:'14:41'},2:{s:'14:36',e:'00:05'}},'2':{1:{s:'06:46',e:'16:21'},2:{s:'16:16',e:'00:30'}}},
+  '81':{'1':{1:{s:'05:32',e:'14:53'},2:{s:'14:48',e:'23:54'}},'2':{1:{s:'05:52',e:'15:08'},2:{s:'15:03',e:'00:11'}},'3':{1:{s:'06:10',e:'15:23'},2:{s:'15:18',e:'00:27'}},'5':{1:{s:'06:28',e:'15:38'},2:{s:'15:33',e:'00:47'}}},
+  '84':{'1':{1:{s:'04:52',e:'13:35'},2:{s:'13:30',e:'22:51'}},'2':{1:{s:'06:54',e:'16:04'},2:{s:'15:59',e:'00:49'}},'4':{1:{s:'05:12',e:'14:14'},2:{s:'14:09',e:'00:12'}},'5':{1:{s:'05:30',e:'15:34'},2:{s:'15:29',e:'00:30'}}},
+  '85':{'4':{1:{s:'05:41',e:'15:17'},2:{s:'15:12',e:'00:03'}}}
+},
+sunday: {
+  '1':{'1':{1:{s:'05:45',e:'15:54'},2:{s:'15:49',e:'00:36'}},'2':{1:{s:'06:06',e:'14:42'},2:{s:'14:37',e:'00:58'}},'3':{1:{s:'05:03',e:'15:05'},2:{s:'15:00',e:'01:21'}},'4':{1:{s:'05:24',e:'15:29'},2:{s:'15:24',e:'00:15'}}},
+  '2':{'2':{1:{s:'05:20',e:'15:22'},2:{s:'15:17',e:'01:13'}},'3':{1:{s:'04:36',e:'14:23'},2:{s:'14:18',e:'00:25'}},'4':{1:{s:'05:59',e:'16:03'},2:{s:'15:58',e:'00:49'}}},
+  '4':{'1':{1:{s:'06:31',e:'14:47'},2:{s:'14:42',e:'23:55'}},'2':{1:{s:'07:01',e:'15:14'},2:{s:'15:09',e:'00:22'}}},
+  '5':{'1':{1:{s:'06:06',e:'14:44'},2:{s:'14:39',e:'23:39'}},'2':{1:{s:'06:25',e:'15:04'},2:{s:'14:59',e:'00:29'}},'3':{1:{s:'07:41',e:'16:28'},2:{s:'16:23',e:'01:13'}},'4':{1:{s:'06:44',e:'15:25'},2:{s:'15:20',e:'00:16'}},'5':{1:{s:'06:04',e:'16:07'},2:{s:'16:02',e:'00:54'}},'6':{1:{s:'07:04',e:'15:46'},2:{s:'15:41',e:'00:35'}}},
+  '10':{'1':{1:{s:'06:11',e:'15:15'},2:{s:'15:10',e:'23:54'}},'2':{1:{s:'06:32',e:'15:33'},2:{s:'15:28',e:'00:12'}},'3':{1:{s:'06:52',e:'15:47'},2:{s:'15:42',e:'00:31'}},'4':{1:{s:'07:09',e:'16:03'},2:{s:'15:58',e:'00:51'}},'5':{1:{s:'06:19',e:'14:43'},2:{s:'14:38',e:'00:48'}}},
+  '12':{'3':{1:{s:'05:11',e:'14:19'},2:{s:'14:14',e:'23:37'}}},
+  '13':{'3':{1:{s:'05:01',e:'14:19'},2:{s:'14:14',e:'23:41'}},'7':{1:{s:'06:18',e:'15:38'},2:{s:'15:33',e:'00:46'}}},
+  '16':{'1':{1:{s:'06:39',e:'16:05'},2:{s:'16:00',e:'00:50'}},'3':{1:{s:'05:29',e:'14:54'},2:{s:'14:49',e:'00:15'}},'4':{1:{s:'05:55',e:'15:12'},2:{s:'15:07',e:'00:39'}},'7':{1:{s:'06:17',e:'15:30'},2:{s:'15:25',e:'01:03'}}},
+  '18':{'4':{1:{s:'06:02',e:'16:12'},2:{s:'16:07',e:'00:56'}}},
+  '20':{'1':{1:{s:'07:40',e:'16:24'},2:{s:'16:19',e:'00:57'}},'2':{1:{s:'07:48',e:'15:24'},2:{s:'15:19',e:'00:10'}}},
+  '25':{'1':{1:{s:'05:59',e:'15:48'},2:{s:'15:43',e:'00:40'}}},
+  '26':{'1':{1:{s:'06:16',e:'15:29'},2:{s:'15:24',e:'23:25'}},'2':{1:{s:'05:19',e:'14:33'},2:{s:'14:28',e:'22:28'}},'3':{1:{s:'05:48',e:'15:03'},2:{s:'14:58',e:'22:57'}}},
+  '27':{'1':{1:{s:'05:19',e:'15:07'},2:{s:'15:02',e:'23:26'}},'2':{1:{s:'07:56',e:'16:02'},2:{s:'15:57',e:'00:24'}}},
+  '33':{'1':{1:{s:'05:40',e:'15:09'},2:{s:'15:04',e:'00:33'}},'2':{1:{s:'05:19',e:'14:35'},2:{s:'14:30',e:'01:01'}},'3':{1:{s:'06:05',e:'15:46'},2:{s:'15:41',e:'00:11'}},'4':{1:{s:'06:50',e:'15:27'},2:{s:'15:22',e:'00:50'}},'5':{1:{s:'06:30',e:'16:18'},2:{s:'16:13',e:'00:28'}},'6':{1:{s:'08:10',e:'16:48'},2:{s:'16:43',e:'00:44'}}},
+  '34':{'4':{1:{s:'05:57',e:'14:22'},2:{s:'14:17',e:'00:29'}}},
+  '35':{'4':{1:{s:'04:49',e:'13:54'},2:{s:'13:49',e:'00:56'}},'6':{1:{s:'04:27',e:'13:38'},2:{s:'13:33',e:'00:37'}}},
+  '42':{'1':{1:{s:'05:01',e:'14:24'},2:{s:'14:19',e:'23:52'}},'5':{1:{s:'05:36',e:'15:08'},2:{s:'15:03',e:'00:37'}},'9':{1:{s:'06:21',e:'15:55'},2:{s:'15:50',e:'01:06'}}},
+  '57':{'1':{1:{s:'05:53',e:'15:06'},2:{s:'15:01',e:'00:17'}}},
+  '61':{'1':{1:{s:'06:33',e:'14:56'},2:{s:'14:51',e:'23:08'}},'2':{1:{s:'06:08',e:'15:41'},2:{s:'15:36',e:'23:53'}},'3':{1:{s:'07:01',e:'15:19'},2:{s:'15:14',e:'23:30'}},'4':{1:{s:'07:47',e:'16:04'},2:{s:'15:59',e:'00:18'}}},
+  '62':{'1':{1:{s:'06:35',e:'14:47'},2:{s:'14:42',e:'23:05'}}},
+  '72':{'1':{1:{s:'05:17',e:'15:01'},2:{s:'14:56',e:'00:34'}},'2':{1:{s:'05:32',e:'15:16'},2:{s:'15:11',e:'23:39'}},'3':{1:{s:'05:47',e:'15:31'},2:{s:'15:26',e:'00:50'}},'4':{1:{s:'06:02',e:'14:23'},2:{s:'14:18',e:'00:05'}},'5':{1:{s:'06:17',e:'16:01'},2:{s:'15:56',e:'00:19'}}},
+  '73':{'2':{1:{s:'06:46',e:'16:21'},2:{s:'16:16',e:'00:30'}},'4':{1:{s:'05:19',e:'15:29'},2:{s:'15:24',e:'00:38'}}},
+  '81':{'1':{1:{s:'05:32',e:'14:53'},2:{s:'14:48',e:'23:54'}},'2':{1:{s:'05:52',e:'15:08'},2:{s:'15:03',e:'00:11'}},'3':{1:{s:'06:10',e:'15:23'},2:{s:'15:18',e:'00:27'}},'5':{1:{s:'06:28',e:'15:38'},2:{s:'15:33',e:'00:47'}}},
+  '84':{'1':{1:{s:'04:52',e:'13:35'},2:{s:'13:30',e:'22:51'}},'2':{1:{s:'06:54',e:'16:04'},2:{s:'15:59',e:'00:49'}},'4':{1:{s:'05:12',e:'14:14'},2:{s:'14:09',e:'00:12'}},'5':{1:{s:'05:30',e:'15:34'},2:{s:'15:29',e:'00:30'}}},
+  '85':{'4':{1:{s:'05:41',e:'15:17'},2:{s:'15:12',e:'00:03'}}}
+}
+};
+
+// dayType('YYYY-MM-DD') -> 'weekday' | 'saturday' | 'sunday'
+// В Эстонии гос. праздник = расписание выходного (воскресное).
+function dayType(dateKey) {
+  if (isHoliday(dateKey)) return 'sunday';
+  const [y, mo, d] = dateKey.split('-').map(Number);
+  const dow = new Date(y, mo - 1, d).getDay();
+  if (dow === 0) return 'sunday';
+  if (dow === 6) return 'saturday';
+  return 'weekday';
+}
+
+// Нормализуем номер очереди: '05' -> '5', '5' -> '5'
+function normOrder(s) {
+  if (s == null) return '';
+  const n = parseInt(String(s).trim(), 10);
+  return isNaN(n) ? String(s).trim() : String(n);
+}
+
+// Достать пару {start,end} из SCHEDULES по типу дня, маршруту, очереди и номеру смены (1 или 2).
+function lookupShiftTimes(dateKey, route, order, vahetus) {
+  const type = dayType(dateKey);
+  const table = SCHEDULES[type];
+  if (!table) return null;
+  const byRoute = table[String(route).trim()];
+  if (!byRoute) return null;
+  const byOrder = byRoute[normOrder(order)];
+  if (!byOrder) return null;
+  const v = parseInt(vahetus, 10);
+  const slot = byOrder[v];
+  if (!slot) return null;
+  return { start: slot.s, end: slot.e };
+}
+
 // Считает пересечение интервала [start, end) минут от начала суток с ночным окном.
 // nightStart=22, nightEnd=6 — окно с 22:00 до 06:00 (через полночь).
 // Возвращает минуты, попавшие в ночное окно.
@@ -1156,27 +1386,45 @@ function shiftHolidayMinutes(dateKey, shift) {
   return w == null ? 0 : w;
 }
 
-// Сумма агрегатов по диапазону: часы, ночные, katkestus, праздничные
+// Сумма агрегатов по диапазону: часы, ночные, katkestus, праздничные.
+// accordionMin/nightAccMin/holidayAccMin — отдельно для дней с включённой "гармошкой"
+// (ставка 11.35 €/ч). Премия за качество и katkestus считаются от базовой ставки всегда.
 function aggregatePayroll(fromKey, toKey) {
   let workedMin = 0, nightMin = 0, katkestusMin = 0, holidayMin = 0, planMin = 0;
+  let workedAccMin = 0, nightAccMin = 0, holidayAccMin = 0;
   Object.keys(state.shifts).forEach(k => {
     if (k < fromKey || k > toKey) return;
     const s = state.shifts[k];
     if (!s) return;
     const st = dayStatus(s);
     if (st !== 'work' && st !== 'extra') return;
-    const w = workMinutes(s);
-    if (w == null) return;
-    workedMin += w;
-    nightMin += shiftNightMinutes(s);
-    katkestusMin += shiftKatkestusMinutes(s);
-    holidayMin += shiftHolidayMinutes(k, s);
+    // План в общую сумму включаем ВСЕГДА (план — это план, даже на будущие дни)
     if (st === 'work') {
       const p = parseTime(s.plan);
       if (p) planMin += p;
     }
+    // Но факт/часы/ночные/праздники — ТОЛЬКО для подтверждённых дней.
+    // Импортированный но не подтверждённый день = только план, без часов в ЗП.
+    if (s.imported && !s.confirmed) return;
+    const w = workMinutes(s);
+    if (w == null) return;
+    const isAcc = !!s.accordion;
+    const nMin = shiftNightMinutes(s);
+    const hMin = shiftHolidayMinutes(k, s);
+    if (isAcc) {
+      workedAccMin += w;
+      nightAccMin  += nMin;
+      holidayAccMin += hMin;
+    } else {
+      workedMin += w;
+      nightMin  += nMin;
+      holidayMin += hMin;
+    }
+    // Katkestus — всегда от базовой ставки
+    katkestusMin += shiftKatkestusMinutes(s);
   });
-  return { workedMin, nightMin, katkestusMin, holidayMin, planMin };
+  return { workedMin, nightMin, katkestusMin, holidayMin, planMin,
+           workedAccMin, nightAccMin, holidayAccMin };
 }
 
 // Переработка за квартал. month — 0..11.
@@ -1192,6 +1440,9 @@ function quarterOvertimeMinutes(year, month) {
   return diff > 0 ? diff : 0;
 }
 
+// Ставка для дней с активной "гармошкой"
+const ACCORDION_RATE = 11.35;
+
 // Главный расчёт ЗП за месяц
 function calcPayroll(year, month) {
   const fromKey = year + '-' + pad(month + 1) + '-01';
@@ -1203,15 +1454,24 @@ function calcPayroll(year, month) {
   const katkestusHours = agg.katkestusMin / 60;
   const holidayHours = agg.holidayMin / 60;
   const overtimeHours = quarterOvertimeMinutes(year, month) / 60;
+  const hoursAcc = agg.workedAccMin / 60;
+  const nightHoursAcc = agg.nightAccMin / 60;
+  const holidayHoursAcc = agg.holidayAccMin / 60;
 
+  // База + ночные + праздники — раздельно по ставкам
   const base       = hours * PAYROLL.rate;
+  const baseAcc    = hoursAcc * ACCORDION_RATE;
   const night      = nightHours * PAYROLL.rate * (PAYROLL.nightPercent / 100);
-  const katkestus  = katkestusHours * PAYROLL.rate * (PAYROLL.splitShiftPercent / 100);
+  const nightAcc   = nightHoursAcc * ACCORDION_RATE * (PAYROLL.nightPercent / 100);
   const holiday    = holidayHours * PAYROLL.rate * (PAYROLL.holidayPercent / 100);
+  const holidayAcc = holidayHoursAcc * ACCORDION_RATE * (PAYROLL.holidayPercent / 100);
+  // Katkestus, переработка, премия за качество — всегда от базовой ставки
+  const katkestus  = katkestusHours * PAYROLL.rate * (PAYROLL.splitShiftPercent / 100);
   const overtime   = overtimeHours * PAYROLL.rate * (PAYROLL.overtimePercent / 100);
-  const quality    = hours * PAYROLL.qualityRate;
+  const quality    = (hours + hoursAcc) * PAYROLL.qualityRate;
 
-  const bruto = base + night + katkestus + holiday + overtime + quality;
+  const bruto = base + baseAcc + night + nightAcc + katkestus
+              + holiday + holidayAcc + overtime + quality;
 
   const pension = bruto * (PAYROLL.pensionPercent / 100);
   const unemp   = bruto * (PAYROLL.unempPercent / 100);
@@ -1220,7 +1480,7 @@ function calcPayroll(year, month) {
   const incomeTax = incomeBase * (PAYROLL.incomePercent / 100);
   const neto = bruto - pension - unemp - incomeTax;
 
-  return { hours, bruto, neto };
+  return { hours: hours + hoursAcc, bruto, neto };
 }
 
 function fmtEur(v) {
@@ -1296,10 +1556,12 @@ function commitField(field) {
       // if the record is now empty (no real fields), drop it entirely
       const remaining = Object.keys(state.shifts[k]).filter(x => state.shifts[k][x]);
       if (remaining.length === 0) delete state.shifts[k];
+      else state.shifts[k].confirmed = true;
     }
   } else {
     if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
     state.shifts[k][field] = v;
+    state.shifts[k].confirmed = true;
   }
   save();
   renderToday();
@@ -1393,8 +1655,16 @@ function renderToday() {
   document.getElementById('today-date').textContent =
     d.getDate() + ' ' + MONTH_NAMES_RU[d.getMonth()].toLowerCase() + ', ' + DAY_NAMES_RU[d.getDay()];
   document.getElementById('today-plan').textContent = s.plan || '—';
-  document.getElementById('header-info').textContent =
-    pad(d.getHours()) + ':' + pad(d.getMinutes());
+  // Показ маршрута если есть
+  const routeEl = document.getElementById('today-route');
+  if (routeEl) {
+    if (s.route) {
+      routeEl.textContent = '№ ' + s.route;
+      routeEl.style.display = '';
+    } else {
+      routeEl.style.display = 'none';
+    }
+  }
 
   // Update time inputs (only if not currently focused, to not break user typing)
   ['start','lunchIn','lunchOut','end'].forEach(field => {
@@ -1419,6 +1689,13 @@ function renderToday() {
   const overtimeWrap = document.getElementById('overtime-toggle');
   if (overtimeCheck) overtimeCheck.checked = isExtra;
   if (overtimeWrap) overtimeWrap.classList.toggle('active', isExtra);
+
+  // Sync the "Гармошка" toggle state
+  const isAccordion = !!s.accordion;
+  const accordionCheck = document.getElementById('accordion-check');
+  const accordionWrap = document.getElementById('accordion-toggle');
+  if (accordionCheck) accordionCheck.checked = isAccordion;
+  if (accordionWrap) accordionWrap.classList.toggle('active', isAccordion);
 
   const w = workMinutes(s);
   const planMin = parseTime(s.plan);
@@ -1500,6 +1777,9 @@ function renderMonth() {
       const w = workMinutes(s);
       const planMin = parseTime(s.plan);
 
+      const isUnconfirmed = !!(s.imported && !s.confirmed);
+      if (isUnconfirmed) tr.classList.add('row-unconfirmed');
+
       if (isNonWorkStatus(st)) {
         tr.innerHTML = `
           <td><div class="day-cell"><span class="day-num">${day}</span><span class="day-name">${dayName}</span></div></td>
@@ -1509,9 +1789,11 @@ function renderMonth() {
         const deltaStr = delta != null ? fmtMinSigned(delta) : '—';
         const deltaClass = delta == null ? 'dim' : (delta >= 0 ? 'pos' : 'neg');
         const extraBadge = st === 'extra' ? ' <span class="badge extra" style="margin-left:4px;">подр.</span>' : '';
+        const accBadge = s.accordion ? ' <span class="badge" style="margin-left:4px;background:rgba(212,165,67,0.18);color:#e3bf6b;">гарм.</span>' : '';
+        const routeInfo = s.route ? `<span class="day-route">№${s.route}</span>` : '';
 
         tr.innerHTML = `
-          <td><div class="day-cell"><span class="day-num">${day}${extraBadge}</span><span class="day-name">${dayName}</span></div></td>
+          <td><div class="day-cell"><span class="day-num">${day}${extraBadge}${accBadge}</span><span class="day-name">${dayName}</span>${routeInfo}</div></td>
           <td class="num dim">${s.plan || '—'}</td>
           <td class="num">${s.start || '—'}</td>
           <td class="num">${s.end || '—'}</td>
@@ -1545,7 +1827,9 @@ function aggregateRange(fromKey, toKey) {
     const planMin = parseTime(s.plan);
 
     if (st === 'work' && planMin) totalPlan += planMin;
-    if ((st === 'work' || st === 'extra') && w != null) {
+    // "Отработанные" часы и счётчики — только для подтверждённых дней.
+    const isUnconfirmed = s.imported && !s.confirmed;
+    if (!isUnconfirmed && (st === 'work' || st === 'extra') && w != null) {
       totalWorked += w;
       daysWorked++;
       if (st === 'work' && planMin) planForWorkedDays += planMin;
@@ -1686,6 +1970,11 @@ function openShiftModal(dateK) {
   setRowValue('lunchIn', s.lunchIn || null, 'modal');
   setRowValue('lunchOut', s.lunchOut || null, 'modal');
   setModalStatus(dayStatus(s) || 'work');
+  // Гармошка
+  const accCheck = document.getElementById('modal-accordion-check');
+  const accWrap = document.getElementById('modal-accordion-toggle');
+  if (accCheck) accCheck.checked = !!s.accordion;
+  if (accWrap) accWrap.classList.toggle('active', !!s.accordion);
   document.getElementById('shift-delete').style.display = state.shifts[dateK] ? 'block' : 'none';
   document.getElementById('modal-shift').classList.add('show');
 }
@@ -1699,20 +1988,30 @@ function closeShiftModal() {
 function saveShift() {
   const newDate = document.getElementById('shift-date').value;
   if (!newDate) { showToast('Укажи дату'); return; }
-  const data = { status: modalStatus };
+  const prev = (editingDate && state.shifts[editingDate]) || state.shifts[newDate] || {};
+  // Подтверждённая руками запись: confirmed:true. Снимаем флаг imported (хотя можно оставить — confirmed важнее).
+  const data = { status: modalStatus, confirmed: true };
+  // Сохраняем метаданные импорта (маршрут/очередь/смена), если не сбрасываем на не-рабочий статус
   if (modalStatus === 'work' || modalStatus === 'extra') {
+    if (prev.route) data.route = prev.route;
+    if (prev.routeOrder) data.routeOrder = prev.routeOrder;
+    if (prev.vahetus) data.vahetus = prev.vahetus;
     const plan = document.getElementById('shift-plan').value.trim();
     if (plan) data.plan = plan;
     const s1 = readRowValue('start', 'modal'); if (s1) data.start = s1;
     const s2 = readRowValue('end', 'modal'); if (s2) data.end = s2;
     const s3 = readRowValue('lunchIn', 'modal'); if (s3) data.lunchIn = s3;
     const s4 = readRowValue('lunchOut', 'modal'); if (s4) data.lunchOut = s4;
+    // Гармошка
+    const accCheck = document.getElementById('modal-accordion-check');
+    if (accCheck && accCheck.checked) data.accordion = true;
   }
   if (editingDate && editingDate !== newDate) {
     delete state.shifts[editingDate];
   }
   // Drop record entirely if it's the default empty 'work' status with no data
-  const hasContent = (data.status !== 'work') || data.plan || data.start || data.end || data.lunchIn || data.lunchOut;
+  const hasContent = (data.status !== 'work') || data.plan || data.start || data.end ||
+                     data.lunchIn || data.lunchOut || data.route || data.accordion;
   if (!hasContent) {
     delete state.shifts[newDate];
   } else {
@@ -1741,29 +2040,45 @@ function deleteShift() {
 function importPastedText(text) {
   const { y, m } = state.currentMonth;
   const lines = text.split('\n');
-  let imported = 0;
+  let imported = 0, skipped = 0;
 
   // Status keyword detection — Estonian / Russian / Ukrainian variants.
   // Returns one of: 'vacation', 'sick', 'off', 'reserve', or null.
   function detectStatus(rest) {
-    const r = rest.toLowerCase();
-    // Vacation: et — puhkus, puhkusel; ru — отпуск, в отпуске; uk — відпустка, у відпустці
     if (/puhku(s|sel)/i.test(rest)
       || /отпуск/i.test(rest)
       || /в\s*отпуске/i.test(rest)
       || /відпуст/i.test(rest)
       || /у\s*відпустці/i.test(rest)) return 'vacation';
-    // Sick: et — haige, haiguslehel; ru — больничный, на больничном; uk — лікарняний, на лікарняному
     if (/haige|haigusleh/i.test(rest)
       || /больничн/i.test(rest)
       || /лікарнян/i.test(rest)) return 'sick';
-    // Day off: et — vaba päev; ru — выходной; uk — вихідний
     if (/vaba\s*p[äa]ev|free/i.test(rest)
       || /выходн/i.test(rest)
       || /вихідн|вихiдн/i.test(rest)) return 'off';
-    // Reserve — Estonian: Reservis; treat as work day without specific plan
     if (/reservis|резерв/i.test(rest)) return 'reserve';
     return null;
+  }
+
+  // Применяет новые поля к смене.
+  // Если у смены стоит confirmed:true — НЕ трогаем её вообще (защита от затирания).
+  // Иначе обновляем поля плана/времени, не трогая lunchIn/lunchOut (это всегда руками).
+  function applyImport(k, fields) {
+    const prev = state.shifts[k];
+    if (prev && prev.confirmed) {
+      skipped++;
+      return false;
+    }
+    const next = { ...(prev || {}), ...fields, imported: true };
+    // Сбрасываем взаимоисключающие поля если меняется статус
+    if (fields.status && fields.status !== 'work' && fields.status !== 'extra') {
+      delete next.plan; delete next.start; delete next.end;
+      delete next.lunchIn; delete next.lunchOut;
+      delete next.route; delete next.routeOrder; delete next.vahetus;
+    }
+    state.shifts[k] = next;
+    imported++;
+    return true;
   }
 
   for (const line of lines) {
@@ -1771,71 +2086,73 @@ function importPastedText(text) {
     if (!trimmed) continue;
     if (/^(KUUGRAAFIK|Kuu|Liin|Vahetus|Kokku|date|plan|mobis)/i.test(trimmed)) continue;
 
-    // Pattern A: full date "dd.mm.yyyy ... H:MM" with explicit year
+    // Pattern A: full date "dd.mm.yyyy ..."
     let match = trimmed.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})\s+(.*)$/);
+    let dayKey = null, rest = null;
     if (match) {
       const day = parseInt(match[1]);
       const mm = parseInt(match[2]) - 1;
       const yy = parseInt(match[3]);
-      const rest = match[4];
-      const k = yy + '-' + pad(mm+1) + '-' + pad(day);
-      const status = detectStatus(rest);
-      if (status === 'vacation' || status === 'sick' || status === 'off') {
-        state.shifts[k] = { ...(state.shifts[k] || {}), status };
-        imported++;
-        continue;
-      }
-      const planMatch = rest.match(/(\d{1,2}):(\d{2})/);
-      if (planMatch) {
-        const plan = planMatch[1] + ':' + planMatch[2];
-        state.shifts[k] = { ...(state.shifts[k] || {}), plan, status: 'work' };
-        imported++;
-        continue;
-      }
-      if (status === 'reserve') {
-        state.shifts[k] = { ...(state.shifts[k] || {}), status: 'work' };
-        imported++;
-      }
+      dayKey = yy + '-' + pad(mm+1) + '-' + pad(day);
+      rest = match[4];
+    } else {
+      // Pattern B: starts with day-of-month
+      match = trimmed.match(/^(\d{1,2})\s+(.*)$/);
+      if (!match) continue;
+      const day = parseInt(match[1]);
+      if (day < 1 || day > 31) continue;
+      dayKey = y + '-' + pad(m+1) + '-' + pad(day);
+      rest = match[2];
+    }
+
+    const status = detectStatus(rest);
+
+    if (status === 'vacation' || status === 'sick' || status === 'off') {
+      applyImport(dayKey, { status });
       continue;
     }
 
-    // Pattern B: starts with day-of-month, then any text
-    match = trimmed.match(/^(\d{1,2})\s+(.*)$/);
-    if (match) {
-      const day = parseInt(match[1]);
-      if (day < 1 || day > 31) continue;
-      const rest = match[2];
-      const k = y + '-' + pad(m+1) + '-' + pad(day);
-      const status = detectStatus(rest);
-
-      if (status === 'vacation' || status === 'sick' || status === 'off') {
-        state.shifts[k] = { ...(state.shifts[k] || {}), status };
-        imported++;
-        continue;
-      }
-      // Reserve = work day, no fixed plan
-      if (status === 'reserve') {
-        // Reserve days often include a plan like "8:00" anyway — try to grab it
-        const planMatch = rest.match(/(\d{1,2}):(\d{2})/);
-        const prev = state.shifts[k] || {};
-        state.shifts[k] = { ...prev, status: 'work', ...(planMatch ? { plan: planMatch[1] + ':' + planMatch[2] } : {}) };
-        imported++;
-        continue;
-      }
-      // Regular work day with plan: find H:MM anywhere in the rest of the line
+    if (status === 'reserve') {
       const planMatch = rest.match(/(\d{1,2}):(\d{2})/);
-      if (planMatch) {
-        const plan = planMatch[1] + ':' + planMatch[2];
-        state.shifts[k] = { ...(state.shifts[k] || {}), plan, status: 'work' };
-        imported++;
-        continue;
+      const fields = { status: 'reserve' };
+      if (planMatch) fields.plan = planMatch[1] + ':' + planMatch[2];
+      applyImport(dayKey, fields);
+      continue;
+    }
+
+    // Полный формат: "route order vahetus plan"
+    const fullMatch = rest.match(/^(\d{1,3})\s+(\d{1,2})\s+([12])\s+(\d{1,2}):(\d{2})\b/);
+    if (fullMatch) {
+      const route = fullMatch[1];
+      const order = normOrder(fullMatch[2]);
+      const vahetus = parseInt(fullMatch[3], 10);
+      const plan = fullMatch[4] + ':' + fullMatch[5];
+      const fields = { plan, status: 'work', route, routeOrder: order, vahetus };
+      const times = lookupShiftTimes(dayKey, route, order, vahetus);
+      if (times) {
+        fields.start = times.start;
+        fields.end = times.end;
       }
+      applyImport(dayKey, fields);
+      continue;
+    }
+
+    // Fallback: только план
+    const planMatch = rest.match(/(\d{1,2}):(\d{2})/);
+    if (planMatch) {
+      applyImport(dayKey, { plan: planMatch[1] + ':' + planMatch[2], status: 'work' });
+      continue;
     }
   }
 
   save();
   renderMonth();
-  showToast(imported > 0 ? `Импортировано: ${imported} дней` : 'Ничего не распознано');
+  let msg;
+  if (imported > 0 && skipped > 0) msg = `Импортировано: ${imported}, пропущено подтверждённых: ${skipped}`;
+  else if (imported > 0) msg = `Импортировано: ${imported} дней`;
+  else if (skipped > 0) msg = `Все ${skipped} дней уже подтверждены — пропущено`;
+  else msg = 'Ничего не распознано';
+  showToast(msg, 2500);
 }
 
 /* =========================================================
@@ -1935,6 +2252,11 @@ document.querySelectorAll('#shift-status-chips .chip').forEach(c => {
   c.addEventListener('click', () => setModalStatus(c.dataset.status));
 });
 
+// Визуальная синхронизация модальной гармошки
+document.getElementById('modal-accordion-check').addEventListener('change', (e) => {
+  document.getElementById('modal-accordion-toggle').classList.toggle('active', e.target.checked);
+});
+
 document.getElementById('reset-link').addEventListener('click', () => {
   // Drop focus from any active time input so its blur handler doesn't
   // re-create the record while we're trying to delete it.
@@ -1960,10 +2282,12 @@ document.getElementById('overtime-check').addEventListener('change', (e) => {
     // Mark today's record as overtime (create the record if it doesn't exist yet)
     if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
     state.shifts[k].status = 'extra';
+    state.shifts[k].confirmed = true;
   } else {
     // Demote back to regular work day; if record is otherwise empty, drop it
     if (state.shifts[k]) {
       state.shifts[k].status = 'work';
+      state.shifts[k].confirmed = true;
       // Clean up legacy flag too
       delete state.shifts[k].extra;
       const hasContent = state.shifts[k].start || state.shifts[k].end ||
@@ -1976,6 +2300,32 @@ document.getElementById('overtime-check').addEventListener('change', (e) => {
   renderToday();
   renderMonth();
   showToast(checked ? 'Помечено как подработка' : 'Снято с подработки', 1500);
+});
+
+// Гармошка toggle (повышенная ставка 11.35)
+document.getElementById('accordion-check').addEventListener('change', (e) => {
+  const k = todayKey();
+  const checked = e.target.checked;
+  if (checked) {
+    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00', status: 'work' };
+    state.shifts[k].accordion = true;
+    state.shifts[k].confirmed = true;
+  } else {
+    if (state.shifts[k]) {
+      delete state.shifts[k].accordion;
+      state.shifts[k].confirmed = true;
+      // Если запись пустая — удалить
+      const s = state.shifts[k];
+      const hasContent = s.start || s.end || s.lunchIn || s.lunchOut ||
+                         (s.plan && s.plan !== '8:00') ||
+                         (s.status && s.status !== 'work') || s.route;
+      if (!hasContent) delete state.shifts[k];
+    }
+  }
+  save();
+  renderToday();
+  renderMonth();
+  showToast(checked ? 'Включена ставка гармошки' : 'Обычная ставка', 1500);
 });
 
 document.getElementById('prev-month').addEventListener('click', () => {
@@ -2011,6 +2361,36 @@ document.getElementById('paste-import').addEventListener('click', () => {
   if (!text.trim()) { showToast('Поле пустое'); return; }
   importPastedText(text);
   document.getElementById('modal-paste').classList.remove('show');
+});
+
+// Очистка импортированных графиков за весь текущий месяц.
+// Удаляет ТОЛЬКО записи с флагом imported:true (и без confirmed:true).
+// Подтверждённые (введённые/проверенные руками) дни остаются.
+document.getElementById('clear-import-btn').addEventListener('click', () => {
+  const { y, m } = state.currentMonth;
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const fromKey = y + '-' + pad(m+1) + '-01';
+  const toKey   = y + '-' + pad(m+1) + '-' + pad(daysInMonth);
+  const toDelete = [];
+  Object.keys(state.shifts).forEach(k => {
+    if (k < fromKey || k > toKey) return;
+    const s = state.shifts[k];
+    if (!s) return;
+    // Удаляем только импортированное и не подтверждённое
+    if (s.imported && !s.confirmed) toDelete.push(k);
+  });
+  if (toDelete.length === 0) {
+    showToast('Нечего очищать (нет импортированных записей)');
+    return;
+  }
+  if (!confirm(`Удалить ${toDelete.length} импортированных записей за ${MONTH_NAMES_RU[m]} ${y}? Подтверждённые дни не тронутся.`)) {
+    return;
+  }
+  toDelete.forEach(k => { delete state.shifts[k]; });
+  save();
+  renderMonth();
+  renderToday();
+  showToast(`Удалено: ${toDelete.length} записей`);
 });
 
 document.getElementById('export-btn').addEventListener('click', exportCSV);
