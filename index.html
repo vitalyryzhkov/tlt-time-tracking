@@ -269,6 +269,28 @@
   }
   .bus-search button:not(:disabled):active { transform: scale(0.97); }
 
+  /* Маленькая ссылка-кнопка для открытия расписания текущего маршрута */
+  .route-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-left: 6px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    color: var(--info);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    vertical-align: -4px;
+    transition: all 0.15s;
+  }
+  .route-link-btn:hover { background: var(--bg-elevated); border-color: var(--info); }
+  .route-link-btn:active { transform: scale(0.92); }
+
   /* Overtime toggle on Today view */
   .overtime-toggle {
     display: flex;
@@ -785,7 +807,10 @@
       <div class="today-meta">
         <span id="today-date">—</span>
         <span>план <span id="today-plan" style="color: var(--text); font-weight: 500;">—</span></span>
-        <span id="today-route" style="display:none; color: var(--info); font-weight: 500;"></span>
+        <span id="today-route-wrap" style="display:none; color: var(--info); font-weight: 500;">
+          <span id="today-route"></span>
+          <button type="button" id="today-route-btn" class="route-link-btn" title="Открыть расписание этого маршрута">📋</button>
+        </span>
       </div>
       <div class="today-elapsed" id="today-elapsed">00:00</div>
       <div class="today-status" id="today-status">Ещё не начат</div>
@@ -858,6 +883,11 @@
     <div class="bus-search">
       <input type="text" id="bus-number-input" inputmode="numeric" pattern="[0-9]*" placeholder="🚌 номер автобуса" maxlength="6" autocomplete="off">
       <button type="button" id="bus-search-btn" disabled>Поиск</button>
+    </div>
+
+    <div class="bus-search">
+      <input type="text" id="route-number-input" inputmode="numeric" pattern="[0-9]*" placeholder="📋 номер маршрута" maxlength="3" autocomplete="off">
+      <button type="button" id="route-search-btn" disabled>Расписание</button>
     </div>
 
     <div class="stats">
@@ -1713,13 +1743,17 @@ function renderToday() {
     d.getDate() + ' ' + MONTH_NAMES_RU[d.getMonth()].toLowerCase() + ', ' + DAY_NAMES_RU[d.getDay()];
   document.getElementById('today-plan').textContent = s.plan || '—';
   // Показ маршрута если есть
+  const routeWrap = document.getElementById('today-route-wrap');
   const routeEl = document.getElementById('today-route');
-  if (routeEl) {
+  const routeBtn = document.getElementById('today-route-btn');
+  if (routeWrap && routeEl) {
     if (s.route) {
       routeEl.textContent = '№ ' + s.route;
-      routeEl.style.display = '';
+      routeWrap.style.display = '';
+      if (routeBtn) routeBtn.dataset.route = s.route;
     } else {
-      routeEl.style.display = 'none';
+      routeWrap.style.display = 'none';
+      if (routeBtn) delete routeBtn.dataset.route;
     }
   }
 
@@ -2423,6 +2457,47 @@ document.getElementById('accordion-check').addEventListener('change', (e) => {
   });
   btn.addEventListener('click', doSearch);
 })();
+
+// Открыть расписание маршрута на thetimey.com
+function openRouteSchedule(route) {
+  if (!route) return;
+  const n = encodeURIComponent(String(route).toLowerCase().trim());
+  const url = 'https://thetimey.com/ru/estoniya/tallin/tallinn-transport/raspisaniya/' + n + '-avtobus';
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// Поиск расписания маршрута на Сегодня (ручной ввод)
+(function setupRouteSearch() {
+  const input = document.getElementById('route-number-input');
+  const btn = document.getElementById('route-search-btn');
+  if (!input || !btn) return;
+
+  function isValid() {
+    return /^\d{1,3}$/.test(input.value.trim());
+  }
+  function updateBtn() { btn.disabled = !isValid(); }
+  function doSearch() {
+    if (!isValid()) return;
+    openRouteSchedule(input.value.trim());
+  }
+
+  input.addEventListener('input', () => {
+    const cleaned = input.value.replace(/\D/g, '');
+    if (cleaned !== input.value) input.value = cleaned;
+    updateBtn();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+  });
+  btn.addEventListener('click', doSearch);
+})();
+
+// Кнопка "расписание" рядом с маршрутом текущей смены
+document.getElementById('today-route-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const r = e.currentTarget.dataset.route;
+  if (r) openRouteSchedule(r);
+});
 
 document.getElementById('prev-month').addEventListener('click', () => {
   const { y, m } = state.currentMonth;
