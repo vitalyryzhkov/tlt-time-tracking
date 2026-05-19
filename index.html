@@ -782,6 +782,8 @@
     margin-bottom: 8px;
   }
 </style>
+<!-- GoatCounter: анонимный счётчик уникальных устройств -->
+<script data-goatcounter="https://tlt-tracker.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
@@ -2438,8 +2440,11 @@ document.getElementById('accordion-check').addEventListener('change', (e) => {
     if (!isValid()) return;
     const n = encodeURIComponent(input.value.trim());
     const url = 'https://ebus.ee/index.php?a=search_db&name=' + n + '&status=1';
-    // Открываем в новой вкладке/окне
     window.open(url, '_blank', 'noopener,noreferrer');
+    // Очищаем поле и снова отключаем кнопку
+    input.value = '';
+    input.blur();
+    updateBtn();
   }
 
   // Фильтр ввода: только цифры
@@ -2479,6 +2484,9 @@ function openRouteSchedule(route) {
   function doSearch() {
     if (!isValid()) return;
     openRouteSchedule(input.value.trim());
+    input.value = '';
+    input.blur();
+    updateBtn();
   }
 
   input.addEventListener('input', () => {
