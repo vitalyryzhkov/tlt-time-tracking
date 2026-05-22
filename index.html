@@ -714,6 +714,53 @@
   }
   .modal-actions .btn { flex: 1; justify-content: center; padding: 12px; }
 
+  /* Блок маршрут/очередь/смена в модалке */
+  .route-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 8px;
+    align-items: end;
+    margin-bottom: 14px;
+  }
+  .route-fields .rf-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .route-fields .rf-label {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .route-fields input, .route-fields select {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 8px;
+    font-size: 15px;
+    font-family: inherit;
+    text-align: center;
+    outline: none;
+    box-sizing: border-box;
+    height: 42px;
+  }
+  .route-fields input:focus, .route-fields select:focus { border-color: var(--accent-dim); }
+  .route-fields .rf-recalc {
+    height: 42px;
+    padding: 0 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--info);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .route-fields .rf-recalc:hover { background: var(--bg-elevated); border-color: var(--info); }
+  .route-fields .rf-recalc:active { transform: scale(0.95); }
+
   textarea {
     width: 100%;
     background: var(--bg-input);
@@ -813,6 +860,7 @@
           <span id="today-route"></span>
           <button type="button" id="today-route-btn" class="route-link-btn" title="Открыть расписание этого маршрута">📋</button>
         </span>
+        <button type="button" id="today-route-edit" class="route-link-btn" title="Изменить маршрут / смену">✏️</button>
       </div>
       <div class="today-elapsed" id="today-elapsed">00:00</div>
       <div class="today-status" id="today-status">Ещё не начат</div>
@@ -1044,6 +1092,7 @@
       <div class="status-chips" id="shift-status-chips">
         <button type="button" class="chip" data-status="work">Рабочий</button>
         <button type="button" class="chip" data-status="extra">Подработка</button>
+        <button type="button" class="chip" data-status="reserve">Резерв</button>
         <button type="button" class="chip" data-status="vacation">Отпуск</button>
         <button type="button" class="chip" data-status="sick">Больничный</button>
         <button type="button" class="chip" data-status="off">Выходной</button>
@@ -1053,6 +1102,27 @@
     <div id="shift-work-fields">
       <div class="modal-row">
         <label style="flex: 1;">План (часы:минуты)<input type="text" id="shift-plan" placeholder="8:00" inputmode="numeric"></label>
+      </div>
+
+      <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 8px;">Маршрут</div>
+      <div class="route-fields">
+        <div class="rf-col">
+          <span class="rf-label">Маршрут</span>
+          <input type="text" id="shift-route" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="—" autocomplete="off">
+        </div>
+        <div class="rf-col">
+          <span class="rf-label">Очередь</span>
+          <input type="text" id="shift-order" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="—" autocomplete="off">
+        </div>
+        <div class="rf-col">
+          <span class="rf-label">Смена</span>
+          <select id="shift-vahetus">
+            <option value="">—</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <button type="button" class="rf-recalc" id="shift-recalc-time" title="Подставить время из расписания">↻</button>
       </div>
 
       <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 8px;">Смена</div>
@@ -1486,7 +1556,10 @@ function aggregatePayroll(fromKey, toKey) {
     const s = state.shifts[k];
     if (!s) return;
     const st = dayStatus(s);
-    if (st !== 'work' && st !== 'extra') return;
+    const w0 = workMinutes(s);
+    // Резерв с введённым фактом (start+end) = реально отработанная смена → считаем как work.
+    const isReserveWorked = (st === 'reserve' && w0 != null);
+    if (st !== 'work' && st !== 'extra' && !isReserveWorked) return;
     // План в общую сумму включаем ВСЕГДА (план — это план, даже на будущие дни)
     if (st === 'work') {
       const p = parseTime(s.plan);
@@ -1876,7 +1949,8 @@ function renderMonth() {
       const isUnconfirmed = !!(s.imported && !s.confirmed);
       if (isUnconfirmed) tr.classList.add('row-unconfirmed');
 
-      if (isNonWorkStatus(st)) {
+      const reserveWithData = (st === 'reserve' && (s.route || s.start || s.end));
+      if (isNonWorkStatus(st) && !reserveWithData) {
         tr.innerHTML = `
           <td><div class="day-cell"><span class="day-num">${day}</span><span class="day-name">${dayName}</span></div></td>
           <td colspan="5"><span class="badge ${st}">${STATUS_LABELS[st]}</span></td>`;
@@ -1885,11 +1959,12 @@ function renderMonth() {
         const deltaStr = delta != null ? fmtMinSigned(delta) : '—';
         const deltaClass = delta == null ? 'dim' : (delta >= 0 ? 'pos' : 'neg');
         const extraBadge = st === 'extra' ? ' <span class="badge extra" style="margin-left:4px;">подр.</span>' : '';
+        const reserveBadge = st === 'reserve' ? ' <span class="badge reserve" style="margin-left:4px;">резерв</span>' : '';
         const accBadge = s.accordion ? ' <span class="badge" style="margin-left:4px;background:rgba(212,165,67,0.18);color:#e3bf6b;">гарм.</span>' : '';
         const routeInfo = s.route ? `<span class="day-route">№${s.route}</span>` : '';
 
         tr.innerHTML = `
-          <td><div class="day-cell"><span class="day-num">${day}${extraBadge}${accBadge}</span><span class="day-name">${dayName}</span>${routeInfo}</div></td>
+          <td><div class="day-cell"><span class="day-num">${day}${extraBadge}${reserveBadge}${accBadge}</span><span class="day-name">${dayName}</span>${routeInfo}</div></td>
           <td class="num dim">${s.plan || '—'}</td>
           <td class="num">${s.start || '—'}</td>
           <td class="num">${s.end || '—'}</td>
@@ -1925,7 +2000,8 @@ function aggregateRange(fromKey, toKey) {
     if (st === 'work' && planMin) totalPlan += planMin;
     // "Отработанные" часы и счётчики — только для подтверждённых дней.
     const isUnconfirmed = s.imported && !s.confirmed;
-    if (!isUnconfirmed && (st === 'work' || st === 'extra') && w != null) {
+    const isReserveWorked = (st === 'reserve' && w != null);
+    if (!isUnconfirmed && (st === 'work' || st === 'extra' || isReserveWorked) && w != null) {
       totalWorked += w;
       daysWorked++;
       if (st === 'work' && planMin) planForWorkedDays += planMin;
@@ -2049,8 +2125,8 @@ function setModalStatus(st) {
   document.querySelectorAll('#shift-status-chips .chip').forEach(c => {
     c.classList.toggle('active', c.dataset.status === st);
   });
-  // Hide work-related fields for non-work statuses
-  const showWork = (st === 'work' || st === 'extra');
+  // Hide work-related fields for non-work statuses (резерв тоже может иметь маршрут/время)
+  const showWork = (st === 'work' || st === 'extra' || st === 'reserve');
   document.getElementById('shift-work-fields').style.display = showWork ? 'block' : 'none';
 }
 
@@ -2066,6 +2142,10 @@ function openShiftModal(dateK) {
   setRowValue('lunchIn', s.lunchIn || null, 'modal');
   setRowValue('lunchOut', s.lunchOut || null, 'modal');
   setModalStatus(dayStatus(s) || 'work');
+  // Маршрут / очередь / смена
+  document.getElementById('shift-route').value = s.route || '';
+  document.getElementById('shift-order').value = s.routeOrder || '';
+  document.getElementById('shift-vahetus').value = s.vahetus ? String(s.vahetus) : '';
   // Гармошка
   const accCheck = document.getElementById('modal-accordion-check');
   const accWrap = document.getElementById('modal-accordion-toggle');
@@ -2085,13 +2165,18 @@ function saveShift() {
   const newDate = document.getElementById('shift-date').value;
   if (!newDate) { showToast('Укажи дату'); return; }
   const prev = (editingDate && state.shifts[editingDate]) || state.shifts[newDate] || {};
-  // Подтверждённая руками запись: confirmed:true. Снимаем флаг imported (хотя можно оставить — confirmed важнее).
+  // Подтверждённая руками запись: confirmed:true.
   const data = { status: modalStatus, confirmed: true };
-  // Сохраняем метаданные импорта (маршрут/очередь/смена), если не сбрасываем на не-рабочий статус
-  if (modalStatus === 'work' || modalStatus === 'extra') {
-    if (prev.route) data.route = prev.route;
-    if (prev.routeOrder) data.routeOrder = prev.routeOrder;
-    if (prev.vahetus) data.vahetus = prev.vahetus;
+  // Рабочий / подработка / резерв — могут иметь маршрут, время, очередь, смену
+  if (modalStatus === 'work' || modalStatus === 'extra' || modalStatus === 'reserve') {
+    // Маршрут/очередь/смена — из полей модалки
+    const route = document.getElementById('shift-route').value.replace(/\D/g, '').trim();
+    const order = document.getElementById('shift-order').value.replace(/\D/g, '').trim();
+    const vahetus = document.getElementById('shift-vahetus').value.trim();
+    if (route) data.route = route;
+    if (order) data.routeOrder = normOrder(order);
+    if (vahetus) data.vahetus = parseInt(vahetus, 10);
+
     const plan = document.getElementById('shift-plan').value.trim();
     if (plan) data.plan = plan;
     const s1 = readRowValue('start', 'modal'); if (s1) data.start = s1;
@@ -2353,6 +2438,36 @@ document.getElementById('modal-accordion-check').addEventListener('change', (e) 
   document.getElementById('modal-accordion-toggle').classList.toggle('active', e.target.checked);
 });
 
+// Фильтр ввода: только цифры в полях маршрута и очереди
+['shift-route', 'shift-order'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => {
+    const cleaned = el.value.replace(/\D/g, '');
+    if (cleaned !== el.value) el.value = cleaned;
+  });
+});
+
+// Кнопка ↻ — подставить время из расписания по маршруту/очереди/смене
+document.getElementById('shift-recalc-time').addEventListener('click', () => {
+  const dateK = document.getElementById('shift-date').value;
+  const route = document.getElementById('shift-route').value.replace(/\D/g, '').trim();
+  const order = document.getElementById('shift-order').value.replace(/\D/g, '').trim();
+  const vahetus = document.getElementById('shift-vahetus').value.trim();
+  if (!dateK) { showToast('Сначала укажи дату'); return; }
+  if (!route || !order || !vahetus) {
+    showToast('Заполни маршрут, очередь и смену', 2200);
+    return;
+  }
+  const times = lookupShiftTimes(dateK, route, order, parseInt(vahetus, 10));
+  if (!times) {
+    showToast('Нет в расписании — введи время вручную', 2500);
+    return;
+  }
+  setRowValue('start', times.start, 'modal');
+  setRowValue('end', times.end, 'modal');
+  showToast('Время подставлено: ' + times.start + '–' + times.end, 2200);
+});
+
 document.getElementById('reset-link').addEventListener('click', () => {
   // Drop focus from any active time input so its blur handler doesn't
   // re-create the record while we're trying to delete it.
@@ -2505,6 +2620,11 @@ document.getElementById('today-route-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   const r = e.currentTarget.dataset.route;
   if (r) openRouteSchedule(r);
+});
+
+document.getElementById('today-route-edit').addEventListener('click', (e) => {
+  e.stopPropagation();
+  openShiftModal(todayKey());
 });
 
 document.getElementById('prev-month').addEventListener('click', () => {
