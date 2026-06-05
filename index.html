@@ -2438,7 +2438,7 @@ function importPastedText(text) {
    CSV EXPORT
    ========================================================= */
 function exportCSV() {
-  const rows = [['Дата','Статус','План','Старт','Конец','На обед','С обеда','Отработано','Δ']];
+  const rows = [['Дата','Статус','План','Старт','Конец','На обед','С обеда','Отработано','Δ','Маршрут','Гармошка']];
   Object.keys(state.shifts).sort().forEach(k => {
     const s = state.shifts[k];
     const st = dayStatus(s);
@@ -2455,6 +2455,8 @@ function exportCSV() {
       s.lunchOut || '',
       w != null ? fmtMin(w) : '',
       delta != null ? fmtMinSigned(delta) : '',
+      s.route || '',
+      s.accordion ? 'да' : '',
     ]);
   });
   const csv = rows.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
