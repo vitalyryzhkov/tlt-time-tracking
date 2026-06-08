@@ -1243,6 +1243,19 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="modal-km">
+  <div class="modal">
+    <h3>Километраж за смену</h3>
+    <div class="modal-row">
+      <label style="flex: 1;">Километры<input type="text" id="km-input" inputmode="decimal" placeholder="напр. 187.45" autocomplete="off" style="font-size: 20px; text-align: center;"></label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="km-cancel">Отмена</button>
+      <button class="btn btn-primary" id="km-save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2645,6 +2658,26 @@ document.getElementById('modal-accordion-check').addEventListener('change', (e) 
   });
 });
 
+// Автоформат поля «План»: цифры → Ч:ММ (последние 2 цифры = минуты).
+// 742 → 7:42, 1000 → 10:00, 1005 → 10:05
+(function setupPlanAutoFormat() {
+  const el = document.getElementById('shift-plan');
+  if (!el) return;
+  el.addEventListener('input', (e) => {
+    let digits = el.value.replace(/\D/g, '');
+    if (digits.length > 4) digits = digits.slice(0, 4); // максимум ЧЧ:ММ
+    let formatted;
+    if (digits.length <= 2) {
+      formatted = digits; // пока вводят часы — без двоеточия
+    } else {
+      const mm = digits.slice(-2);
+      const hh = digits.slice(0, -2);
+      formatted = hh + ':' + mm;
+    }
+    el.value = formatted;
+  });
+})();
+
 // Кнопка ↻ — подставить время из расписания по маршруту/очереди/смене
 document.getElementById('shift-recalc-time').addEventListener('click', () => {
   const dateK = document.getElementById('shift-date').value;
@@ -2825,15 +2858,27 @@ document.getElementById('today-route-edit').addEventListener('click', (e) => {
   openShiftModal(todayKey());
 });
 
-// Тап по блоку «Пробег» — быстрый ввод километража за сегодня
+// Тап по блоку «Пробег» — открыть модалку ввода километража за сегодня
 document.getElementById('today-km').addEventListener('click', () => {
   const k = todayKey();
   const cur = (state.shifts[k] && typeof state.shifts[k].km === 'number') ? state.shifts[k].km : '';
-  const ans = prompt('Километраж за смену (км):', cur === '' ? '' : String(cur));
-  if (ans === null) return;
-  const raw = ans.replace(',', '.').trim();
+  const input = document.getElementById('km-input');
+  input.value = cur === '' ? '' : String(cur);
+  document.getElementById('modal-km').classList.add('show');
+  setTimeout(() => input.focus(), 50);
+});
+
+function closeKmModal() {
+  document.getElementById('modal-km').classList.remove('show');
+}
+document.getElementById('km-cancel').addEventListener('click', closeKmModal);
+document.getElementById('modal-km').addEventListener('click', (e) => {
+  if (e.target.id === 'modal-km') closeKmModal();
+});
+function saveKmFromModal() {
+  const k = todayKey();
+  const raw = document.getElementById('km-input').value.replace(',', '.').trim();
   if (raw === '') {
-    // очистка
     if (state.shifts[k]) {
       delete state.shifts[k].km;
       state.shifts[k].confirmed = true;
@@ -2848,6 +2893,11 @@ document.getElementById('today-km').addEventListener('click', () => {
   save();
   renderToday();
   renderMonth();
+  closeKmModal();
+}
+document.getElementById('km-save').addEventListener('click', saveKmFromModal);
+document.getElementById('km-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); saveKmFromModal(); }
 });
 
 // Настройка ставки пенсии II ступени (тап по метке «Нетто»)
