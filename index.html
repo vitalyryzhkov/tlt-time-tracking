@@ -120,6 +120,38 @@
   }
   .today-status.active { color: var(--accent); }
 
+  /* Блок километража в шапке Сегодня */
+  .today-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .today-km {
+    text-align: right;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    transition: all 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .today-km:active { transform: scale(0.97); }
+  .today-km-label {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .today-km-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--info);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .today-km-value.empty { color: var(--text-faint); font-weight: 400; font-size: 15px; }
+
   /* Time entry blocks (replaces action buttons + manual edit) */
   .time-block {
     background: var(--bg-elevated);
@@ -862,8 +894,16 @@
         </span>
         <button type="button" id="today-route-edit" class="route-link-btn" title="Изменить маршрут / смену">✏️</button>
       </div>
-      <div class="today-elapsed" id="today-elapsed">00:00</div>
-      <div class="today-status" id="today-status">Ещё не начат</div>
+      <div class="today-body">
+        <div>
+          <div class="today-elapsed" id="today-elapsed">00:00</div>
+          <div class="today-status" id="today-status">Ещё не начат</div>
+        </div>
+        <div class="today-km" id="today-km" title="Километраж за смену">
+          <div class="today-km-label">Пробег</div>
+          <div class="today-km-value empty" id="today-km-value">+ км</div>
+        </div>
+      </div>
     </div>
 
     <!-- Block 1: Смена -->
@@ -1955,6 +1995,18 @@ function renderToday() {
     }
   }
 
+  // Километраж
+  const kmValEl = document.getElementById('today-km-value');
+  if (kmValEl) {
+    if (typeof s.km === 'number' && s.km > 0) {
+      kmValEl.textContent = s.km.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      kmValEl.classList.remove('empty');
+    } else {
+      kmValEl.textContent = '+ км';
+      kmValEl.classList.add('empty');
+    }
+  }
+
   // Update time inputs (only if not currently focused, to not break user typing)
   ['start','lunchIn','lunchOut','end'].forEach(field => {
     const row = getInputRow(field);
@@ -2771,6 +2823,31 @@ document.getElementById('today-route-btn').addEventListener('click', (e) => {
 document.getElementById('today-route-edit').addEventListener('click', (e) => {
   e.stopPropagation();
   openShiftModal(todayKey());
+});
+
+// Тап по блоку «Пробег» — быстрый ввод километража за сегодня
+document.getElementById('today-km').addEventListener('click', () => {
+  const k = todayKey();
+  const cur = (state.shifts[k] && typeof state.shifts[k].km === 'number') ? state.shifts[k].km : '';
+  const ans = prompt('Километраж за смену (км):', cur === '' ? '' : String(cur));
+  if (ans === null) return;
+  const raw = ans.replace(',', '.').trim();
+  if (raw === '') {
+    // очистка
+    if (state.shifts[k]) {
+      delete state.shifts[k].km;
+      state.shifts[k].confirmed = true;
+    }
+  } else {
+    const km = parseFloat(raw);
+    if (isNaN(km) || km < 0) { showToast('Неверное число'); return; }
+    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00', status: 'work' };
+    state.shifts[k].km = Math.round(km * 100) / 100;
+    state.shifts[k].confirmed = true;
+  }
+  save();
+  renderToday();
+  renderMonth();
 });
 
 // Настройка ставки пенсии II ступени (тап по метке «Нетто»)
