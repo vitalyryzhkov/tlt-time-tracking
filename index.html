@@ -152,6 +152,51 @@
   }
   .today-km-value.empty { color: var(--text-faint); font-weight: 400; font-size: 15px; }
 
+  /* Напоминание о пробеге — три фазы по времени смены */
+  .today-km.km-alert {
+    padding: 8px 14px;
+    border-style: dashed;
+    animation: kmPulse 2.6s ease-in-out infinite;
+  }
+  /* За час до начала смены — мягкий синий намёк */
+  .today-km.km-soon {
+    border-color: var(--info);
+    background: rgba(107, 163, 214, 0.10);
+    --km-glow: rgba(107, 163, 214, 0.22);
+  }
+  .today-km.km-soon .today-km-label { color: var(--info); }
+  .today-km.km-soon .today-km-value.empty { color: var(--info); font-weight: 600; font-size: 16px; }
+  /* Смена идёт, пробега нет — жёлтый */
+  .today-km.km-due {
+    border-color: var(--warning);
+    background: rgba(212, 165, 67, 0.10);
+    --km-glow: rgba(212, 165, 67, 0.20);
+    animation-duration: 2.2s;
+  }
+  /* Смена закончилась, пробега так и нет — громко */
+  .today-km.km-overdue {
+    border-style: solid;
+    border-color: var(--warning);
+    background: rgba(212, 165, 67, 0.22);
+    --km-glow: rgba(212, 165, 67, 0.30);
+    animation-duration: 1.3s;
+  }
+  .today-km.km-due .today-km-label,
+  .today-km.km-overdue .today-km-label { color: var(--warning); }
+  .today-km.km-due .today-km-value.empty,
+  .today-km.km-overdue .today-km-value.empty {
+    color: var(--warning);
+    font-weight: 600;
+    font-size: 16px;
+  }
+  @keyframes kmPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+    50%      { box-shadow: 0 0 0 5px var(--km-glow, transparent); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .today-km.km-alert { animation: none; }
+  }
+
   /* Time entry blocks (replaces action buttons + manual edit) */
   .time-block {
     background: var(--bg-elevated);
@@ -1666,7 +1711,38 @@ function lookupShiftTimes(dateKey, route, order, vahetus) {
   return { start: slot.s, end: slot.e };
 }
 
-// Считает пересечение интервала [start, end) минут от начала суток с ночным окном.
+// Плановое окно смены в минутах от полуночи.
+// Берём из расписания по маршруту/очереди/смене, иначе — из введённых вручную полей.
+// Ночные смены (end < start) разворачиваем за 24:00.
+function plannedWindow(dateKey, s) {
+  let st = null, en = null;
+  if (s && s.route && s.routeOrder && s.vahetus) {
+    const t = lookupShiftTimes(dateKey, s.route, s.routeOrder, s.vahetus);
+    if (t) { st = parseTime(t.start); en = parseTime(t.end); }
+  }
+  if (st == null && s && s.start) st = parseTime(s.start);
+  if (en == null && s && s.end) en = parseTime(s.end);
+  if (st != null && en != null && en < st) en += 1440;
+  return { st, en };
+}
+
+// За сколько минут до начала смены начинать напоминать про пробег
+const KM_LEAD_MIN = 60;
+
+// Фаза напоминания: null | 'soon' | 'due' | 'overdue'
+function kmReminderPhase(dateKey, s, nowMin) {
+  if (!s) return null;
+  if (typeof s.km === 'number' && s.km > 0) return null;
+  if (isNonWorkStatus(dayStatus(s))) return null;
+  const { st, en } = plannedWindow(dateKey, s);
+  if (st == null) return null;
+  if (en != null && nowMin >= en) return 'overdue';
+  if (nowMin >= st) return 'due';
+  if (st - nowMin <= KM_LEAD_MIN) return 'soon';
+  return null;
+}
+
+
 // nightStart=22, nightEnd=6 — окно с 22:00 до 06:00 (через полночь).
 // Возвращает минуты, попавшие в ночное окно.
 function nightOverlap(startMin, endMin, nightStartH, nightEndH) {
@@ -2010,13 +2086,21 @@ function renderToday() {
 
   // Километраж
   const kmValEl = document.getElementById('today-km-value');
+  const kmBoxEl = document.getElementById('today-km');
   if (kmValEl) {
-    if (typeof s.km === 'number' && s.km > 0) {
+    const hasKm = typeof s.km === 'number' && s.km > 0;
+    const nowD = new Date();
+    const phase = kmReminderPhase(todayKey(), s, nowD.getHours() * 60 + nowD.getMinutes());
+    if (hasKm) {
       kmValEl.textContent = s.km.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       kmValEl.classList.remove('empty');
     } else {
-      kmValEl.textContent = '+ км';
+      kmValEl.textContent = phase ? 'Вписать →' : '+ км';
       kmValEl.classList.add('empty');
+    }
+    if (kmBoxEl) {
+      kmBoxEl.classList.toggle('km-alert', !!phase);
+      ['soon', 'due', 'overdue'].forEach(p => kmBoxEl.classList.toggle('km-' + p, phase === p));
     }
   }
 
@@ -3026,7 +3110,12 @@ renderToday();
 setInterval(() => {
   const k = todayKey();
   const s = state.shifts[k];
-  if (s && s.start && !s.end) renderToday();
+  if (!s) return;
+  const running = s.start && !s.end;
+  // Перерисовываем и когда пробег ещё не вписан — чтобы напоминание
+  // зажглось само, без переоткрытия приложения.
+  const kmPending = !(typeof s.km === 'number' && s.km > 0);
+  if (running || kmPending) renderToday();
 }, 30000);
 </script>
 </body>
