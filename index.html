@@ -1212,12 +1212,10 @@
     <p class="bus-default-note" style="margin: 8px 2px 0;">
       Копия — файл со всеми записями. Отправь его себе в почту или в Telegram:
       если сменишь телефон или почистишь браузер, вернуть данные можно только
-      из него. «Экспорт CSV» для этого не годится — это таблица для глаз,
-      загрузить её обратно нельзя.
+      из него.
     </p>
 
     <div style="margin-top: 16px;">
-      <button class="btn" id="export-btn">⬇ Экспорт CSV</button>
       <button class="btn btn-danger" id="clear-btn">⚠ Очистить всё</button>
     </div>
   </div>
@@ -2935,60 +2933,6 @@ function importPastedText(text) {
 }
 
 /* =========================================================
-   CSV EXPORT
-   ========================================================= */
-// Идёт ли день в начисление. Держим в одном месте, чтобы CSV и расчёт
-// зарплаты не разъезжались.
-function paidDay(dateK, s) {
-  if (!s) return false;
-  const st = dayStatus(s);
-  const w = workMinutes(s);
-  if (st !== 'work' && st !== 'extra' && !(st === 'reserve' && w != null)) return false;
-  if (s.imported && !s.confirmed) return false;
-  return w != null;
-}
-
-function exportCSV() {
-  const rows = [['Дата','Статус','План','Старт','Конец','На обед','С обеда','Отработано','Δ','Маршрут','Гармошка','Км']];
-  Object.keys(state.shifts).sort().forEach(k => {
-    const s = state.shifts[k];
-    if (!s) return;
-    const st = dayStatus(s);
-    const w = workMinutes(s);
-    const planMin = parseTime(s.plan);
-    // Резерв с введённым временем — такая же смена, как рабочий день, и Δ по
-    // нему в таблице месяца считается. `isNonWorkStatus` включает резерв, из-за
-    // чего в выгрузке ячейка оставалась пустой.
-    const counts = (st === 'work' || st === 'extra' || st === 'reserve');
-    const delta = (w != null && planMin && counts) ? w - planMin : null;
-    rows.push([
-      k,
-      STATUS_LABELS[st] || '',
-      s.plan || '',
-      s.start || '',
-      s.end || '',
-      s.lunchIn || '',
-      s.lunchOut || '',
-      w != null ? fmtMin(w) : '',
-      delta != null ? fmtMinSigned(delta) : '',
-      s.route || '',
-      // Ровно тот же предикат, что и в aggregatePayroll: неподтверждённый
-      // импорт и день без введённого времени в зарплату не идут, значит и
-      // тип автобуса им приписывать нечего.
-      paidDay(k, s) && isAccordionDay(s) ? 'да' : '',
-      // Тот же фильтр, что и в aggregateRange: пробег засчитывается только за
-      // смены, иначе карточка «Пробег» и колонка «Км» дают разные суммы.
-      ((st === 'work' || st === 'extra' || st === 'reserve')
-        && typeof s.km === 'number' && s.km > 0) ? s.km.toFixed(2) : '',
-    ]);
-  });
-  const csv = rows.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  // Через downloadText: на мобильном Safari якорь должен побывать в документе,
-  // а Blob-ссылку нельзя отзывать сразу — иначе скачивание срывается молча.
-  downloadText('\uFEFF' + csv, 'tlt-tracker.csv', 'text/csv;charset=utf-8');
-}
-
-/* =========================================================
    КОПИЯ ДАННЫХ — выгрузка и восстановление
    =========================================================
    Всё живёт в localStorage одного браузера. Смена телефона, чистка Safari
@@ -3578,8 +3522,6 @@ document.getElementById('clear-import-btn').addEventListener('click', () => {
   renderToday();
   showToast(`Удалено: ${toDelete.length} записей`);
 });
-
-document.getElementById('export-btn').addEventListener('click', exportCSV);
 
 document.getElementById('backup-save-btn').addEventListener('click', exportBackup);
 document.getElementById('backup-load-btn').addEventListener('click', () => {
