@@ -423,15 +423,6 @@
     color: var(--text);
   }
   .overtime-toggle.active .overtime-toggle-text { color: #c592e0; }
-  .overtime-toggle-hint {
-    font-size: 12px;
-    color: var(--text-faint);
-    margin-left: auto;
-  }
-  @media (max-width: 420px) {
-    .overtime-toggle-hint { display: none; }
-  }
-
   /* Accordion toggle (повышенная ставка) — рядом с подработкой */
   .accordion-toggle {
     display: flex;
@@ -487,15 +478,6 @@
     color: var(--text);
   }
   .accordion-toggle.active .accordion-toggle-text { color: #e3bf6b; }
-  .accordion-toggle-hint {
-    font-size: 12px;
-    color: var(--text-faint);
-    margin-left: auto;
-  }
-  @media (max-width: 420px) {
-    .accordion-toggle-hint { display: none; }
-  }
-
   /* Route info — мелкая инфа под номером дня */
   .day-route {
     display: block;
@@ -685,6 +667,17 @@
   .badge.off { background: rgba(107, 163, 214, 0.15); color: var(--info); }
   .badge.extra { background: rgba(177, 118, 214, 0.18); color: #c592e0; }
   .badge.reserve { background: rgba(138, 150, 163, 0.15); color: var(--text-dim); }
+  /* Тип автобуса. Метку получают все дни на гармошке (там повышенная ставка)
+     и обычные дни, выставленные вручную вопреки настройке. Ярко — выбор
+     человека, приглушённо (.bus-auto) — тип, взятый из настройки. */
+  .badge.bus { background: rgba(212, 165, 67, 0.20); color: #e3bf6b; }
+  .badge.bus-regular { background: rgba(138, 150, 163, 0.20); color: #b9c2cc; }
+  .badge.bus-auto {
+    background: transparent;
+    border: 1px solid var(--border-soft);
+    color: var(--text-dim);
+    font-weight: 400;
+  }
 
   /* Stats view */
   .period-switch {
@@ -710,6 +703,46 @@
   .period-btn.active {
     background: var(--bg-input);
     color: var(--text);
+  }
+
+  /* Автобус по умолчанию — настройка на «Итогах».
+     Отдельные классы, а не .period-btn: на .period-btn висит глобальный
+     обработчик переключения периода. */
+  .bus-default { margin-top: 16px; margin-bottom: 12px; }
+  .bus-default-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .bus-switch {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-elevated);
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .bus-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .bus-btn.active { background: var(--bg-input); color: var(--text); }
+  .bus-btn[data-bus="accordion"].active { color: #e3bf6b; }
+  .bus-default-note {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin: 6px 2px 0;
+    line-height: 1.4;
   }
   .period-nav {
     display: flex;
@@ -906,8 +939,6 @@
     margin-bottom: 8px;
   }
 </style>
-<!-- GoatCounter: анонимный счётчик уникальных устройств -->
-<script data-goatcounter="https://tlt-tracker.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
@@ -1150,6 +1181,16 @@
       </table>
     </div>
 
+    <!-- Автобус по умолчанию -->
+    <div class="bus-default">
+      <span class="bus-default-label">Автобус по умолчанию</span>
+      <div class="bus-switch" id="bus-default-switch">
+        <button type="button" class="bus-btn" data-bus="regular">Обычный</button>
+        <button type="button" class="bus-btn" data-bus="accordion">Гармошка</button>
+      </div>
+      <p class="bus-default-note" id="bus-default-note"></p>
+    </div>
+
     <!-- Блок зарплаты (только в режиме месяца) -->
     <div id="payroll-block" style="display: none; margin-top: 16px;">
       <div class="payroll-label">Зарплата</div>
@@ -1162,6 +1203,18 @@
         <div class="stat-value" id="p-neto" style="color: var(--accent);">—</div>
       </div>
     </div>
+
+    <div style="margin-top: 16px;">
+      <button class="btn" id="backup-save-btn">💾 Сохранить копию</button>
+      <button class="btn" id="backup-load-btn">📂 Восстановить</button>
+      <input type="file" id="backup-file" accept="application/json,.json" style="display:none;">
+    </div>
+    <p class="bus-default-note" style="margin: 8px 2px 0;">
+      Копия — файл со всеми записями. Отправь его себе в почту или в Telegram:
+      если сменишь телефон или почистишь браузер, вернуть данные можно только
+      из него. «Экспорт CSV» для этого не годится — это таблица для глаз,
+      загрузить её обратно нельзя.
+    </p>
 
     <div style="margin-top: 16px;">
       <button class="btn" id="export-btn">⬇ Экспорт CSV</button>
@@ -1260,10 +1313,12 @@
         </div>
       </div>
 
-      <label class="accordion-toggle" id="modal-accordion-toggle" style="margin-top: 14px;">
-        <input type="checkbox" id="modal-accordion-check">
-        <span class="accordion-toggle-text">Гармошка</span>
-      </label>
+      <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 8px;">Автобус</div>
+      <div class="status-chips" id="shift-bus-chips">
+        <button type="button" class="chip" data-bus="">Как обычно</button>
+        <button type="button" class="chip" data-bus="regular">Обычный</button>
+        <button type="button" class="chip" data-bus="accordion">Гармошка</button>
+      </div>
     </div>
 
     <div class="modal-actions">
@@ -1308,19 +1363,64 @@
    STATE & STORAGE
    ========================================================= */
 const STORAGE_KEY = 'work-tracker-v1';
+// Одноразовый снимок данных в том виде, в каком их оставила предыдущая версия.
+// Пишется до первой миграции и больше не трогается — страховка на случай,
+// если миграция что-то испортит.
+const PREMIGRATION_KEY = 'work-tracker-v1-before-bus';
+// Если прочитать хранилище не удалось, писать в него нельзя: пустое состояние
+// затрёт данные, которые мы просто не смогли разобрать.
+let storageReadable = true;
+// Последняя запись в хранилище не удалась (кончилось место). Держим флаг,
+// потому что тост один на всё приложение: без него предупреждение мгновенно
+// затирается бодрым «Сохранено» из того же обработчика.
+let saveFailed = false;
 const state = {
   shifts: {},
+  settings: { defaultBus: 'regular' },
   currentMonth: null,
   statsPeriod: 'month', // 'month' | 'year'
   statsCursor: null, // { y, m } for month, { y } for year
 };
 
+// Приведение записей к текущему формату. Вызывается и при загрузке из
+// localStorage, и при восстановлении из файла копии — файл может быть снят
+// со старой версии приложения (в том числе это аварийный снимок
+// PREMIGRATION_KEY), и тогда в нём ещё старые поля.
+function migrateShifts(shifts) {
+  Object.keys(shifts).forEach(k => {
+    const s = shifts[k];
+    if (!s) return;
+    // Легаси-флаг подработки
+    if (!s.status && s.extra) s.status = 'extra';
+    // Булев флаг `accordion` → поле `bus` с тремя состояниями
+    if (s.accordion && !s.bus) s.bus = 'accordion';
+    delete s.accordion;
+  });
+  return shifts;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
+      // Снимок «как было» — один раз, до любых изменений структуры.
+      try {
+        if (!localStorage.getItem(PREMIGRATION_KEY)) {
+          localStorage.setItem(PREMIGRATION_KEY, raw);
+        }
+      } catch (_) {}
       const data = JSON.parse(raw);
-      state.shifts = data.shifts || {};
+      // Всё, что не похоже на наше хранилище, считаем нечитаемым: лучше
+      // отказаться писать, чем затереть чужие или испорченные данные пустотой.
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('не объект');
+      if (data.shifts === undefined) throw new Error('нет поля shifts');
+      if (typeof data.shifts !== 'object' || data.shifts === null || Array.isArray(data.shifts)) {
+        throw new Error('shifts не объект');
+      }
+      state.shifts = data.shifts;
+      if (data.settings && data.settings.defaultBus === 'accordion') {
+        state.settings.defaultBus = 'accordion';
+      }
       // Migrate legacy `extra: true` flag to `status: 'extra'`
       Object.keys(state.shifts).forEach(k => {
         const s = state.shifts[k];
@@ -1329,11 +1429,88 @@ function load() {
           // otherwise leave status undefined — treated as 'work' by default
         }
       });
+      migrateShifts(state.shifts);
     }
-  } catch(e) { console.warn('load failed', e); }
+  } catch(e) {
+    console.warn('load failed', e);
+    storageReadable = false;
+    state.shifts = {};
+  }
 }
+// Явно выбранную «гармошку» дублируем в прежний флаг `accordion`. Если релиз
+// придётся откатить (или у пользователя из HTTP-кеша поднимется старая
+// версия), она продолжит считать эти дни по повышенной ставке, а не по базовой.
+function shiftForStorage(s) {
+  if (s && s.bus === 'accordion') return Object.assign({}, s, { accordion: true });
+  return s;
+}
+
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ shifts: state.shifts }));
+  if (!storageReadable) return;
+  const out = {};
+  Object.keys(state.shifts).forEach(k => { out[k] = shiftForStorage(state.shifts[k]); });
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ shifts: out, settings: state.settings }));
+    saveFailed = false;
+  } catch (e) {
+    console.warn('save failed', e);
+    saveFailed = true;
+  }
+}
+
+/* =========================================================
+   ТИП АВТОБУСА (обычный / гармошка)
+   =========================================================
+   У дня поле `bus` может быть 'accordion', 'regular' или отсутствовать.
+   Отсутствует = «как по умолчанию», значение берётся из настроек.
+   Дефолт меняется на «Итогах» и действует на все дни без явного выбора.
+
+   Прошедшие дни фиксируются явно (freezePastBus) — при старте приложения
+   и перед сменой дефолта. Иначе переключение дефолта задним числом
+   переписало бы уже посчитанную зарплату за прошлые месяцы.
+   ========================================================= */
+const BUS_LABELS = { regular: 'обычный', accordion: 'гармошка' };
+
+function defaultBus() {
+  return state.settings.defaultBus === 'accordion' ? 'accordion' : 'regular';
+}
+// Тип автобуса за день: явно выбранный или дефолтный.
+function busOf(s) {
+  if (s && (s.bus === 'accordion' || s.bus === 'regular')) return s.bus;
+  return defaultBus();
+}
+function isAccordionDay(s) { return busOf(s) === 'accordion'; }
+
+// Есть ли в записи хоть что-то своё, кроме служебных флагов и выбора типа
+// автобуса. Нужен там, где мы решаем, удалять ли опустевшую запись. Тип
+// автобуса намеренно НЕ учитываем: у каждого вызова про него своё правило.
+function shiftHasContent(s) {
+  if (!s) return false;
+  return !!(s.start || s.end || s.lunchIn || s.lunchOut ||
+            s.route || s.routeOrder || s.vahetus || s.km || s.imported ||
+            (s.plan && s.plan !== '8:00') ||
+            (s.status && s.status !== 'work'));
+}
+
+// Проставить текущий дефолт всем прошедшим дням без явного выбора.
+// `busAuto` отличает «проставила заморозка» от «выбрал человек»: на метку в
+// таблице месяца это влияет яркостью, а не наличием (см. renderMonth).
+// Возвращает true, если что-то изменилось.
+function freezePastBus() {
+  const todayK = todayKey();
+  const cur = defaultBus();
+  let changed = false;
+  Object.keys(state.shifts).forEach(k => {
+    if (k >= todayK) return;
+    const s = state.shifts[k];
+    if (!s || s.bus) return;
+    const st = dayStatus(s);
+    if (st !== 'work' && st !== 'extra' && st !== 'reserve') return;
+    s.bus = cur;
+    s.busAuto = true;
+    changed = true;
+  });
+  return changed;
 }
 
 /* =========================================================
@@ -1399,6 +1576,14 @@ function pairDuration(a, b) {
   return d;
 }
 
+// Экранирование для вставки в innerHTML. Маршрут и план при ручном вводе
+// фильтруются, но в файле копии может быть что угодно — а он приходит извне.
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 const MONTH_NAMES_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DAY_NAMES_RU = ['вс','пн','вт','ср','чт','пт','сб'];
 
@@ -1427,13 +1612,27 @@ function isNonWorkStatus(st) {
      январь 2026:  1962.21 € vs 1962.21 € (ставка 9.90)  — точно
      февраль 2026: 1824.92 € vs 1824.89 € (без разовой компенсации врача)
      март 2026:    2410.26 € vs 2410.77 € (без разовой премии 150 €)
+     июль 2026:    2218.78 € vs 2218.78 € — точно, нетто 1822.34 тоже точно
+     июнь 2026:    2870.50 € vs 2882.66 € — недобор 12.16 € (квартальный месяц)
    Расхождения — от разных ставок 101/151/211 и разовых выплат,
    которые в трекере не моделируются.
+
+   Остаток по июню — квартальная переработка: расчётка берёт 52.28 ч,
+   трекер 50.67 ч. Трекер сравнивает факт с планом из графика (154.95 ч),
+   а бухгалтерия — с нормой рабочего времени (Normtunde kuus 157.00,
+   с учётом отсутствий 151.00). Норма считается точно по TLS §43/§53
+   (проверено: июнь 157, июль 184), но правило уменьшения на отсутствия
+   из расчётки не выводится, поэтому оставлено как есть.
+
+   Налоги сверены по обеим расчёткам до копейки: пенсия II 2%,
+   töötuskindlustus 1.6%, необлагаемый минимум 700 €, подоходный 22%.
+   Ставки тоже: база 10.60, ночные +25%, праздничные +100%.
+   Katkestus в этих месяцах не начислялся — смен с разрывом >2 ч не было.
 
    Брутто:
      База        = часы × ставка
      + Ночные    = часы в 22:00–06:00 × ставка × 25%
-     + Katkestus = (часы работы − 30мин) × ставка × 10%, если разрыв > 2ч
+     + Katkestus = часы работы × ставка × 10%, если разрыв > 2ч
      + Праздники = часы работы в гос.праздники × ставка × 100%
      + Переработка = считается раз в квартал, в последнем месяце:
                      (факт_Q − план_Q, если >0) × ставка × 60%
@@ -1457,7 +1656,6 @@ const PAYROLL = {
   overtimePercent: 60,      // +% за переработку (раз в квартал)
   splitShiftPercent: 10,    // +% katkestus (длинный разрыв смены)
   splitShiftThreshold: 120, // порог разрыва в минутах (>2 ч)
-  splitShiftDeduct: 30,     // мин вычета (30-минутный неоплачиваемый перерыв)
   holidayPercent: 100,      // +% за работу в гос. праздник
   pensionPercent: 2,        // пенсия II ступень
   unempPercent: 1.6,        // töötuskindlustus (работник)
@@ -1475,23 +1673,64 @@ function getPensionRate() {
   return 2;
 }
 function setPensionRate(v) {
-  try { localStorage.setItem('pension-rate-v1', String(v)); } catch (_) {}
+  try {
+    localStorage.setItem('pension-rate-v1', String(v));
+    return true;
+  } catch (_) {
+    // Тот же флаг, что и у save(): иначе тост отрапортует об успехе, которого не было.
+    saveFailed = true;
+    return false;
+  }
 }
 
 // Гос. праздники Эстонии (riigipühad). За работу в эти дни — двойная ставка
-// по §45(2) Töölepingu seadus. Формат: 'MM-DD'.
-const ESTONIA_HOLIDAYS = {
-  2025: ['01-01','02-24','04-18','04-20','05-01','06-08','06-23','06-24','08-20','12-24','12-25','12-26'],
-  2026: ['01-01','02-24','04-03','04-05','05-01','05-24','06-23','06-24','08-20','12-24','12-25','12-26'],
-  2027: ['01-01','02-24','03-26','03-28','05-01','05-16','06-23','06-24','08-20','12-24','12-25','12-26'],
-};
+// по §45(2) Töölepingu seadus.
+//
+// Список НЕ ведём руками: девять праздников с фиксированной датой плюс три
+// пасхальных, которые считаются из даты Пасхи. Так календарь верен для любого
+// года и не протухает молча — раньше список кончался 2027-м, и с 2028-го
+// isHoliday() тихо возвращала бы false (ни двойной ставки, ни расписания выходного).
+const HOLIDAYS_FIXED = ['01-01','02-24','05-01','06-23','06-24','08-20','12-24','12-25','12-26'];
+
+// Пасха по григорианскому календарю (алгоритм Meeus/Butcher).
+function easterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31); // 3 = март, 4 = апрель
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+const HOLIDAY_CACHE = {};
+// Набор 'MM-DD' праздников за год.
+function holidaysOf(year) {
+  if (HOLIDAY_CACHE[year]) return HOLIDAY_CACHE[year];
+  const set = new Set(HOLIDAYS_FIXED);
+  const easter = easterSunday(year);
+  // suur reede (−2), ülestõusmispühade 1. püha (0), nelipühade 1. püha (+49)
+  [-2, 0, 49].forEach(offset => {
+    const d = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() + offset);
+    set.add(pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+  });
+  HOLIDAY_CACHE[year] = set;
+  return set;
+}
 
 function isHoliday(dateKey) {
   // dateKey: 'YYYY-MM-DD'
   const year = parseInt(dateKey.slice(0, 4), 10);
-  const md = dateKey.slice(5);
-  const list = ESTONIA_HOLIDAYS[year];
-  return list ? list.indexOf(md) !== -1 : false;
+  if (isNaN(year)) return false;
+  return holidaysOf(year).has(dateKey.slice(5));
 }
 
 // Расписания смен по типам дней. Только маршрут+очередь+время.
@@ -1798,8 +2037,9 @@ function shiftHolidayMinutes(dateKey, shift) {
 }
 
 // Сумма агрегатов по диапазону: часы, ночные, katkestus, праздничные.
-// accordionMin/nightAccMin/holidayAccMin — отдельно для дней с включённой "гармошкой"
-// (ставка 11.35 €/ч). Премия за качество и katkestus считаются от базовой ставки всегда.
+// accordionMin/nightAccMin/holidayAccMin — отдельно для дней на гармошке
+// (ставка 11.35 €/ч) — явно выбранных или таких по умолчанию.
+// Премия за качество и katkestus считаются от базовой ставки всегда.
 function aggregatePayroll(fromKey, toKey) {
   let workedMin = 0, nightMin = 0, katkestusMin = 0, holidayMin = 0, planMin = 0;
   let workedAccMin = 0, nightAccMin = 0, holidayAccMin = 0;
@@ -1809,20 +2049,23 @@ function aggregatePayroll(fromKey, toKey) {
     if (!s) return;
     const st = dayStatus(s);
     const w0 = workMinutes(s);
-    // Резерв с введённым фактом (start+end) = реально отработанная смена → считаем как work.
-    const isReserveWorked = (st === 'reserve' && w0 != null);
-    if (st !== 'work' && st !== 'extra' && !isReserveWorked) return;
-    // План в общую сумму включаем ВСЕГДА (план — это план, даже на будущие дни)
-    if (st === 'work') {
+    // План в общую сумму включаем ВСЕГДА (план — это план, даже на будущие дни).
+    // Резерв — рабочий день, у которого пока неизвестен маршрут: его план такой
+    // же план. Считаем ДО отсева ниже, иначе неотработанный резерв терял бы
+    // план здесь, но сохранял его в «Итогах» — и две цифры разъезжались.
+    if (st === 'work' || st === 'reserve') {
       const p = parseTime(s.plan);
       if (p) planMin += p;
     }
+    // Резерв с введённым фактом (start+end) = реально отработанная смена → считаем как work.
+    const isReserveWorked = (st === 'reserve' && w0 != null);
+    if (st !== 'work' && st !== 'extra' && !isReserveWorked) return;
     // Но факт/часы/ночные/праздники — ТОЛЬКО для подтверждённых дней.
     // Импортированный но не подтверждённый день = только план, без часов в ЗП.
     if (s.imported && !s.confirmed) return;
     const w = workMinutes(s);
     if (w == null) return;
-    const isAcc = !!s.accordion;
+    const isAcc = isAccordionDay(s);
     const nMin = shiftNightMinutes(s);
     const hMin = shiftHolidayMinutes(k, s);
     if (isAcc) {
@@ -1850,7 +2093,11 @@ function quarterOvertimeMinutes(year, month) {
   const fromKey = year + '-' + pad(qStartMonth + 1) + '-01';
   const toKey   = year + '-' + pad(month + 1) + '-' + pad(new Date(year, month+1, 0).getDate());
   const agg = aggregatePayroll(fromKey, toKey);
-  const diff = agg.workedMin - agg.planMin;
+  // В переработку идёт всё отработанное время, включая дни на гармошке.
+  // Раньше здесь был только workedMin — после разделения ставок часы гармошки
+  // выпадали из надбавки. Проверено на расчётке за июнь 2026 (в Q2 три дня
+  // на гармошке): с ними 50.67 ч против 52.28 ч у бухгалтерии, без них 21.87 ч.
+  const diff = (agg.workedMin + agg.workedAccMin) - agg.planMin;
   return diff > 0 ? diff : 0;
 }
 
@@ -1967,10 +2214,11 @@ function commitField(field) {
     // user cleared the field: don't create a record just to delete a non-existent key
     if (state.shifts[k]) {
       delete state.shifts[k][field];
-      // if the record is now empty (no real fields), drop it entirely
-      const remaining = Object.keys(state.shifts[k]).filter(x => state.shifts[k][x]);
-      if (remaining.length === 0) delete state.shifts[k];
-      else state.shifts[k].confirmed = true;
+      // Если в записи не осталось ничего своего — убираем её целиком, чтобы
+      // день снова считался незаполненным, а не «рабочим с прочерками».
+      const s = state.shifts[k];
+      if (!shiftHasContent(s) && !s.bus) delete state.shifts[k];
+      else s.confirmed = true;
     }
   } else {
     if (!state.shifts[k]) state.shifts[k] = { plan: '8:00' };
@@ -2128,8 +2376,8 @@ function renderToday() {
   if (overtimeCheck) overtimeCheck.checked = isExtra;
   if (overtimeWrap) overtimeWrap.classList.toggle('active', isExtra);
 
-  // Sync the "Гармошка" toggle state
-  const isAccordion = !!s.accordion;
+  // Sync the "Гармошка" toggle state (учитывает дефолт из настроек)
+  const isAccordion = isAccordionDay(s);
   const accordionCheck = document.getElementById('accordion-check');
   const accordionWrap = document.getElementById('accordion-toggle');
   if (accordionCheck) accordionCheck.checked = isAccordion;
@@ -2221,7 +2469,9 @@ function renderMonth() {
       const isUnconfirmed = !!(s.imported && !s.confirmed);
       if (isUnconfirmed) tr.classList.add('row-unconfirmed');
 
-      const reserveWithData = (st === 'reserve' && (s.route || s.start || s.end));
+      // План резерва считается в «Итогах», в зарплате и в CSV — значит и в
+      // таблице он должен быть виден, а не схлопываться в одну плашку.
+      const reserveWithData = (st === 'reserve' && (s.route || s.start || s.end || s.plan));
       if (isNonWorkStatus(st) && !reserveWithData) {
         tr.innerHTML = `
           <td><div class="day-cell"><span class="day-num">${day}</span><span class="day-name">${dayName}</span></div></td>
@@ -2232,14 +2482,24 @@ function renderMonth() {
         const deltaClass = delta == null ? 'dim' : (delta >= 0 ? 'pos' : 'neg');
         const extraBadge = st === 'extra' ? ' <span class="badge extra" style="margin-left:4px;">подр.</span>' : '';
         const reserveBadge = st === 'reserve' ? ' <span class="badge reserve" style="margin-left:4px;">резерв</span>' : '';
-        const accBadge = s.accordion ? ' <span class="badge" style="margin-left:4px;background:rgba(212,165,67,0.18);color:#e3bf6b;">гарм.</span>' : '';
-        const routeInfo = s.route ? `<span class="day-route">№${s.route}</span>` : '';
+        // Метку получают все дни на гармошке — там повышенная ставка, и её
+        // видно всегда, при любой настройке по умолчанию. Обычные дни метим
+        // только когда человек выставил их руками вопреки настройке.
+        // Ярко — выбор человека, приглушённо — тип из настройки.
+        const dayBus = busOf(s);
+        const busManual = !!s.bus && !s.busAuto;
+        const showBus = dayBus === 'accordion' || (busManual && dayBus !== defaultBus());
+        const busCls = (dayBus === 'accordion' ? 'bus' : 'bus-regular')
+                     + (busManual ? '' : ' bus-auto');
+        const accBadge = !showBus ? '' :
+          ` <span class="badge ${busCls}" style="margin-left:4px;">${dayBus === 'accordion' ? 'гарм.' : 'обыч.'}</span>`;
+        const routeInfo = s.route ? `<span class="day-route">№${esc(s.route)}</span>` : '';
 
         tr.innerHTML = `
           <td><div class="day-cell"><span class="day-num">${day}${extraBadge}${reserveBadge}${accBadge}</span><span class="day-name">${dayName}</span>${routeInfo}</div></td>
-          <td class="num dim">${s.plan || '—'}</td>
-          <td class="num">${s.start || '—'}</td>
-          <td class="num">${s.end || '—'}</td>
+          <td class="num dim">${esc(s.plan) || '—'}</td>
+          <td class="num">${esc(s.start) || '—'}</td>
+          <td class="num">${esc(s.end) || '—'}</td>
           <td class="num" style="font-weight:500;">${w != null ? fmtMin(w) : '—'}</td>
           <td class="num ${deltaClass}">${deltaStr}</td>`;
       }
@@ -2270,16 +2530,19 @@ function aggregateRange(fromKey, toKey) {
     const w = workMinutes(s);
     const planMin = parseTime(s.plan);
 
-    if (typeof s.km === 'number' && s.km > 0) totalKm += s.km;
+    // Километраж — только за смены. На отпуске/больничном км остаться может
+    // (например, статус дня поменяли задним числом), в итог он не идёт.
+    if ((st === 'work' || st === 'extra' || st === 'reserve')
+        && typeof s.km === 'number' && s.km > 0) totalKm += s.km;
 
-    if (st === 'work' && planMin) totalPlan += planMin;
+    if ((st === 'work' || st === 'reserve') && planMin) totalPlan += planMin;
     // "Отработанные" часы и счётчики — только для подтверждённых дней.
     const isUnconfirmed = s.imported && !s.confirmed;
     const isReserveWorked = (st === 'reserve' && w != null);
     if (!isUnconfirmed && (st === 'work' || st === 'extra' || isReserveWorked) && w != null) {
       totalWorked += w;
       daysWorked++;
-      if (st === 'work' && planMin) planForWorkedDays += planMin;
+      if ((st === 'work' || st === 'reserve') && planMin) planForWorkedDays += planMin;
       if (st === 'extra') extras++;
     }
     if (st === 'vacation') vacation++;
@@ -2375,7 +2638,24 @@ function renderStats() {
     breakdown.style.display = 'none';
   }
 
+  renderBusDefault();
   renderPayroll();
+}
+
+/* =========================================================
+   НАСТРОЙКА «АВТОБУС ПО УМОЛЧАНИЮ»
+   ========================================================= */
+function renderBusDefault() {
+  const cur = defaultBus();
+  document.querySelectorAll('#bus-default-switch .bus-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.bus === cur);
+  });
+  const note = document.getElementById('bus-default-note');
+  if (note) {
+    note.textContent = 'Так считаются все дни, где тип не выбран вручную. '
+      + 'Отдельный день меняется на «Сегодня» или в карточке дня в «Месяце»; '
+      + 'уже прошедшие дни пересчитаны не будут.';
+  }
 }
 
 /* =========================================================
@@ -2404,6 +2684,15 @@ function renderPayroll() {
    ========================================================= */
 let editingDate = null;
 let modalStatus = 'work';
+// '' = как по умолчанию, 'regular' | 'accordion' = явный выбор на этот день
+let modalBus = '';
+
+function setModalBus(v) {
+  modalBus = (v === 'regular' || v === 'accordion') ? v : '';
+  document.querySelectorAll('#shift-bus-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.bus === modalBus);
+  });
+}
 
 function setModalStatus(st) {
   modalStatus = st;
@@ -2432,11 +2721,10 @@ function openShiftModal(dateK) {
   document.getElementById('shift-order').value = s.routeOrder || '';
   document.getElementById('shift-vahetus').value = s.vahetus ? String(s.vahetus) : '';
   document.getElementById('shift-km').value = (s.km != null ? String(s.km) : '');
-  // Гармошка
-  const accCheck = document.getElementById('modal-accordion-check');
-  const accWrap = document.getElementById('modal-accordion-toggle');
-  if (accCheck) accCheck.checked = !!s.accordion;
-  if (accWrap) accWrap.classList.toggle('active', !!s.accordion);
+  // Автобус: явный выбор на день или «как по умолчанию»
+  const anyBusChip = document.querySelector('#shift-bus-chips .chip[data-bus=""]');
+  if (anyBusChip) anyBusChip.textContent = 'Как обычно (' + BUS_LABELS[defaultBus()] + ')';
+  setModalBus(s.bus);
   document.getElementById('shift-delete').style.display = state.shifts[dateK] ? 'block' : 'none';
   document.getElementById('modal-shift').classList.add('show');
 }
@@ -2469,9 +2757,13 @@ function saveShift() {
     const s2 = readRowValue('end', 'modal'); if (s2) data.end = s2;
     const s3 = readRowValue('lunchIn', 'modal'); if (s3) data.lunchIn = s3;
     const s4 = readRowValue('lunchOut', 'modal'); if (s4) data.lunchOut = s4;
-    // Гармошка
-    const accCheck = document.getElementById('modal-accordion-check');
-    if (accCheck && accCheck.checked) data.accordion = true;
+    // Автобус: пишем поле только при явном выборе, иначе день следует дефолту.
+    // Если тип не трогали, а он был проставлен заморозкой — метку «проставлено
+    // автоматически» сохраняем, иначе правка времени перекрасила бы бейдж.
+    if (modalBus) {
+      data.bus = modalBus;
+      if (prev.busAuto && prev.bus === modalBus) data.busAuto = true;
+    }
     // Километраж
     const kmRaw = document.getElementById('shift-km').value.replace(',', '.').trim();
     if (kmRaw) {
@@ -2484,7 +2776,7 @@ function saveShift() {
   }
   // Drop record entirely if it's the default empty 'work' status with no data
   const hasContent = (data.status !== 'work') || data.plan || data.start || data.end ||
-                     data.lunchIn || data.lunchOut || data.route || data.accordion || data.km;
+                     data.lunchIn || data.lunchOut || data.route || data.bus || data.km;
   if (!hasContent) {
     delete state.shifts[newDate];
   } else {
@@ -2542,13 +2834,19 @@ function importPastedText(text) {
       skipped++;
       return false;
     }
-    const next = { ...(prev || {}), ...fields, imported: true };
-    // Сбрасываем взаимоисключающие поля если меняется статус
+    // Сбрасываем взаимоисключающие поля СТАРОЙ записи, если меняется статус, —
+    // и только потом накладываем новые. Иначе у резерва удалялся план, который
+    // парсер только что достал из этой же строки графика.
+    const base = { ...(prev || {}) };
     if (fields.status && fields.status !== 'work' && fields.status !== 'extra') {
-      delete next.plan; delete next.start; delete next.end;
-      delete next.lunchIn; delete next.lunchOut;
-      delete next.route; delete next.routeOrder; delete next.vahetus;
+      delete base.plan; delete base.start; delete base.end;
+      delete base.lunchIn; delete base.lunchOut;
+      delete base.route; delete base.routeOrder; delete base.vahetus;
+      // Резерв — рабочий день с неизвестным маршрутом, тип автобуса для него
+      // осмыслен. Сбрасываем его только для отпуска/больничного/выходного.
+      if (fields.status !== 'reserve') { delete base.bus; delete base.busAuto; }
     }
+    const next = { ...base, ...fields, imported: true };
     state.shifts[k] = next;
     imported++;
     return true;
@@ -2631,14 +2929,30 @@ function importPastedText(text) {
 /* =========================================================
    CSV EXPORT
    ========================================================= */
+// Идёт ли день в начисление. Держим в одном месте, чтобы CSV и расчёт
+// зарплаты не разъезжались.
+function paidDay(dateK, s) {
+  if (!s) return false;
+  const st = dayStatus(s);
+  const w = workMinutes(s);
+  if (st !== 'work' && st !== 'extra' && !(st === 'reserve' && w != null)) return false;
+  if (s.imported && !s.confirmed) return false;
+  return w != null;
+}
+
 function exportCSV() {
   const rows = [['Дата','Статус','План','Старт','Конец','На обед','С обеда','Отработано','Δ','Маршрут','Гармошка','Км']];
   Object.keys(state.shifts).sort().forEach(k => {
     const s = state.shifts[k];
+    if (!s) return;
     const st = dayStatus(s);
     const w = workMinutes(s);
     const planMin = parseTime(s.plan);
-    const delta = (w != null && planMin && !isNonWorkStatus(st)) ? w - planMin : null;
+    // Резерв с введённым временем — такая же смена, как рабочий день, и Δ по
+    // нему в таблице месяца считается. `isNonWorkStatus` включает резерв, из-за
+    // чего в выгрузке ячейка оставалась пустой.
+    const counts = (st === 'work' || st === 'extra' || st === 'reserve');
+    const delta = (w != null && planMin && counts) ? w - planMin : null;
     rows.push([
       k,
       STATUS_LABELS[st] || '',
@@ -2650,8 +2964,14 @@ function exportCSV() {
       w != null ? fmtMin(w) : '',
       delta != null ? fmtMinSigned(delta) : '',
       s.route || '',
-      s.accordion ? 'да' : '',
-      (typeof s.km === 'number' && s.km > 0) ? s.km.toFixed(2) : '',
+      // Ровно тот же предикат, что и в aggregatePayroll: неподтверждённый
+      // импорт и день без введённого времени в зарплату не идут, значит и
+      // тип автобуса им приписывать нечего.
+      paidDay(k, s) && isAccordionDay(s) ? 'да' : '',
+      // Тот же фильтр, что и в aggregateRange: пробег засчитывается только за
+      // смены, иначе карточка «Пробег» и колонка «Км» дают разные суммы.
+      ((st === 'work' || st === 'extra' || st === 'reserve')
+        && typeof s.km === 'number' && s.km > 0) ? s.km.toFixed(2) : '',
     ]);
   });
   const csv = rows.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -2665,9 +2985,153 @@ function exportCSV() {
 }
 
 /* =========================================================
+   КОПИЯ ДАННЫХ — выгрузка и восстановление
+   =========================================================
+   Всё живёт в localStorage одного браузера. Смена телефона, чистка Safari
+   или выгрузка данных системой — и записей нет. CSV для возврата не годится
+   (это таблица для глаз), поэтому копия отдельным файлом.
+   ========================================================= */
+const BACKUP_FORMAT = 'tlt-tracker-backup';
+// Снимок того, что было ДО восстановления из файла. Кнопки «отменить
+// восстановление» в интерфейсе нет: снимок лежит здесь на случай, когда
+// данные придётся доставать руками через инструменты разработчика.
+const PRERESTORE_KEY = 'work-tracker-v1-before-restore';
+
+function backupFileName(prefix) {
+  const d = new Date();
+  return prefix + d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + '.json';
+}
+
+function downloadText(text, filename) {
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  // Якорь должен побывать в документе, а ссылку отзываем с задержкой:
+  // на мобильном Safari немедленный revoke срывает скачивание.
+  setTimeout(() => {
+    if (a.parentNode) a.parentNode.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+
+function exportBackup() {
+  // Хранилище не прочиталось — в памяти пусто, и обычная копия вышла бы пустым
+  // файлом с обычным именем: отличить его от настоящей копии можно было бы
+  // только заглянув внутрь. Вместо этого отдаём аварийный снимок как есть.
+  if (!storageReadable) {
+    let raw = null;
+    try { raw = localStorage.getItem(PREMIGRATION_KEY); } catch (_) {}
+    if (!raw) {
+      showToast('Данные не читаются, и снимка в телефоне нет — выгружать нечего', 5000, true);
+      return;
+    }
+    downloadText(raw, backupFileName('tlt-tracker-RESCUE-'));
+    showToast('Данные не читаются. Выгружен аварийный снимок — отправь этот файл и пока ничего не вводи', 6500, true);
+    return;
+  }
+  if (Object.keys(state.shifts).length === 0) {
+    showToast('Записей нет — копию делать не из чего. Проверь, тот ли это браузер', 5000, true);
+    return;
+  }
+  const payload = {
+    format: BACKUP_FORMAT,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    shifts: state.shifts,
+    settings: state.settings,
+    pensionRate: getPensionRate(),
+  };
+  downloadText(JSON.stringify(payload, null, 1), backupFileName('tlt-tracker-'));
+  // force: выгрузка файла работает и при полной квоте, врать про неё нельзя.
+  showToast('Копия сохранена — отправь файл себе', 2600, true);
+}
+
+// Разбирает файл копии. Возвращает разобранные данные или бросает исключение.
+function parseBackup(text) {
+  const data = JSON.parse(text);
+  if (!data || typeof data !== 'object') throw new Error('не объект');
+  // Принимаем и голое { shifts: {...} } — на случай копии из будущих версий.
+  const shifts = data.shifts;
+  if (!shifts || typeof shifts !== 'object' || Array.isArray(shifts)) {
+    throw new Error('нет записей');
+  }
+  const keys = Object.keys(shifts);
+  if (keys.length && !keys.every(k => /^\d{4}-\d{2}-\d{2}$/.test(k))) {
+    throw new Error('битые даты');
+  }
+  if (keys.length === 0) throw new Error('в файле нет записей');
+  if (keys.some(k => {
+    const v = shifts[k];
+    return !v || typeof v !== 'object' || Array.isArray(v);
+  })) {
+    throw new Error('битые записи');
+  }
+  const bus = (data.settings && data.settings.defaultBus === 'accordion') ? 'accordion' : 'regular';
+  return { shifts, settings: { defaultBus: bus }, pensionRate: data.pensionRate, days: keys.length };
+}
+
+function importBackup(text) {
+  let parsed;
+  try {
+    parsed = parseBackup(text);
+  } catch (e) {
+    showToast('Это не файл копии (' + e.message + ')', 3000, true);
+    return;
+  }
+  const have = Object.keys(state.shifts).length;
+  if (!confirm('В файле ' + parsed.days + ' дней. Заменить всё, что сейчас в приложении'
+      + (have ? ' (' + have + ' дней)' : '') + '? Это нельзя отменить.')) {
+    return;
+  }
+  // На случай ошибочного восстановления откладываем текущее содержимое.
+  try {
+    const cur = localStorage.getItem(STORAGE_KEY);
+    if (cur) localStorage.setItem(PRERESTORE_KEY, cur);
+  } catch (_) {}
+  state.shifts = migrateShifts(parsed.shifts);
+  state.settings = parsed.settings;
+  // Восстановление — осознанное действие: даже если старое содержимое
+  // хранилища не читалось, теперь в памяти заведомо валидные данные и писать
+  // их можно. Нечитаемый оригинал уже лежит в PREMIGRATION_KEY.
+  storageReadable = true;
+  if (parsed.pensionRate === 2 || parsed.pensionRate === 4 || parsed.pensionRate === 6) {
+    setPensionRate(parsed.pensionRate);
+  }
+  save();
+  const now = new Date();
+  setCurrentMonth(now.getFullYear(), now.getMonth());
+  renderToday();
+  // force обходит подмену тостов — значит правду про неудачную запись надо
+  // сказать здесь самим, иначе на самом опасном пути будет рапорт об успехе.
+  if (saveFailed) {
+    showToast('Данные восстановлены на экране, но записать их не удалось: в браузере нет места. '
+      + 'После перезапуска они пропадут — освободи место и повтори', 7000, true);
+  } else {
+    showToast('Восстановлено: ' + parsed.days + ' дней', 2600, true);
+  }
+}
+
+/* =========================================================
    UI WIRING
    ========================================================= */
-function showToast(msg, duration) {
+function showToast(msg, duration, force) {
+  // Пока данные не ложатся на диск, любой рапорт об успехе («Сохранено»,
+  // «Очищено», «Импортировано») — враньё. Подменяем на правду: тост один на всё
+  // приложение, и иначе предупреждение затрётся следующей же строкой.
+  // force — для сообщений, которые сами описывают это состояние честно
+  // (например, выгрузка копии: она как раз работает и при полной квоте).
+  if (!force && !storageReadable) {
+    msg = 'Данные не сохраняются — сначала восстанови копию';
+    duration = 3500;
+  } else if (!force && saveFailed) {
+    msg = 'Не сохранено — в браузере кончилось место. Выгрузи копию и почисти данные сайта';
+    duration = 5000;
+  }
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
@@ -2728,9 +3192,9 @@ document.querySelectorAll('#shift-status-chips .chip').forEach(c => {
   c.addEventListener('click', () => setModalStatus(c.dataset.status));
 });
 
-// Визуальная синхронизация модальной гармошки
-document.getElementById('modal-accordion-check').addEventListener('change', (e) => {
-  document.getElementById('modal-accordion-toggle').classList.toggle('active', e.target.checked);
+// Выбор типа автобуса на конкретный день (в модалке)
+document.querySelectorAll('#shift-bus-chips .chip').forEach(c => {
+  c.addEventListener('click', () => setModalBus(c.dataset.bus));
 });
 
 // Фильтр ввода: только цифры в полях маршрута и очереди
@@ -2816,10 +3280,10 @@ document.getElementById('overtime-check').addEventListener('change', (e) => {
       state.shifts[k].confirmed = true;
       // Clean up legacy flag too
       delete state.shifts[k].extra;
-      const hasContent = state.shifts[k].start || state.shifts[k].end ||
-                         state.shifts[k].lunchIn || state.shifts[k].lunchOut ||
-                         (state.shifts[k].plan && state.shifts[k].plan !== '8:00');
-      if (!hasContent) delete state.shifts[k];
+      // Выбранный тип автобуса — такое же содержимое записи, как время или
+      // маршрут: снятие подработки не должно его стирать.
+      const s = state.shifts[k];
+      if (!shiftHasContent(s) && !s.bus) delete state.shifts[k];
     }
   }
   save();
@@ -2828,30 +3292,39 @@ document.getElementById('overtime-check').addEventListener('change', (e) => {
   showToast(checked ? 'Помечено как подработка' : 'Снято с подработки', 1500);
 });
 
-// Гармошка toggle (повышенная ставка 11.35)
+// Гармошка toggle — явный выбор типа автобуса на сегодня.
+// Пишем всегда явное значение: тап по тумблеру = решение пользователя,
+// оно должно пережить смену дефолта.
 document.getElementById('accordion-check').addEventListener('change', (e) => {
   const k = todayKey();
   const checked = e.target.checked;
-  if (checked) {
-    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00', status: 'work' };
-    state.shifts[k].accordion = true;
-    state.shifts[k].confirmed = true;
-  } else {
-    if (state.shifts[k]) {
-      delete state.shifts[k].accordion;
-      state.shifts[k].confirmed = true;
-      // Если запись пустая — удалить
-      const s = state.shifts[k];
-      const hasContent = s.start || s.end || s.lunchIn || s.lunchOut ||
-                         (s.plan && s.plan !== '8:00') ||
-                         (s.status && s.status !== 'work') || s.route;
-      if (!hasContent) delete state.shifts[k];
-    }
-  }
+  if (!state.shifts[k]) state.shifts[k] = { plan: '8:00', status: 'work' };
+  const s = state.shifts[k];
+  s.bus = checked ? 'accordion' : 'regular';
+  delete s.busAuto;
+  s.confirmed = true;
+  // Если выбор совпал с дефолтом и в записи больше ничего нет — не держим пустышку,
+  // день и так посчитается по дефолту.
+  if (!shiftHasContent(s) && s.bus === defaultBus()) delete state.shifts[k];
   save();
   renderToday();
   renderMonth();
-  showToast(checked ? 'Включена ставка гармошки' : 'Обычная ставка', 1500);
+  showToast(checked ? 'Сегодня — гармошка' : 'Сегодня — обычный', 1500);
+});
+
+// Смена автобуса по умолчанию (на «Итогах»)
+document.querySelectorAll('#bus-default-switch .bus-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    const next = b.dataset.bus === 'accordion' ? 'accordion' : 'regular';
+    if (next === defaultBus()) return;
+    // Прошедшие дни фиксируем по СТАРОМУ дефолту — задним числом ничего не меняем.
+    freezePastBus();
+    state.settings.defaultBus = next;
+    save();
+    renderToday();
+    renderMonth();
+    showToast('По умолчанию: ' + BUS_LABELS[next], 1800);
+  });
 });
 
 // Поиск автобуса по номеру на ebus.ee
@@ -3016,8 +3489,10 @@ document.getElementById('next-month').addEventListener('click', () => {
 
 document.getElementById('add-shift-btn').addEventListener('click', () => {
   const { y, m } = state.currentMonth;
-  const k = y + '-' + pad(m+1) + '-' + pad(new Date().getDate());
-  openShiftModal(k);
+  // В коротком месяце сегодняшнее число может не существовать (31 → февраль).
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const day = Math.min(new Date().getDate(), daysInMonth);
+  openShiftModal(y + '-' + pad(m+1) + '-' + pad(day));
 });
 
 document.getElementById('shift-cancel').addEventListener('click', closeShiftModal);
@@ -3071,9 +3546,30 @@ document.getElementById('clear-import-btn').addEventListener('click', () => {
 });
 
 document.getElementById('export-btn').addEventListener('click', exportCSV);
+
+document.getElementById('backup-save-btn').addEventListener('click', exportBackup);
+document.getElementById('backup-load-btn').addEventListener('click', () => {
+  document.getElementById('backup-file').click();
+});
+document.getElementById('backup-file').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = ''; // чтобы повторный выбор того же файла тоже сработал
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => importBackup(String(reader.result || ''));
+  reader.onerror = () => showToast('Не удалось прочитать файл', 2600, true);
+  reader.readAsText(file);
+});
 document.getElementById('clear-btn').addEventListener('click', () => {
-  if (confirm('Удалить ВСЕ данные? Это нельзя отменить.')) {
+  if (confirm('Удалить ВСЕ данные, включая аварийные копии в этом браузере? '
+      + 'Это нельзя отменить. Если данные не читаются — сначала попробуй «Сохранить копию».')) {
     state.shifts = {};
+    storageReadable = true; // явная команда стереть — разрешаем запись
+    // «ВСЕ данные» — значит и аварийный снимок до миграции.
+    try {
+      localStorage.removeItem(PREMIGRATION_KEY);
+      localStorage.removeItem(PRERESTORE_KEY);
+    } catch (_) {}
     save();
     renderToday();
     renderMonth();
@@ -3087,19 +3583,31 @@ document.querySelectorAll('.modal-backdrop').forEach(b => {
   });
 });
 
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-if (!isStandalone && !localStorage.getItem('install-dismissed')) {
-  document.getElementById('install-hint').classList.add('show');
-}
+// Всё, что трогает localStorage, — под защитой: в Safari с запретом на данные
+// сайтов обращение бросает, и без try/catch скрипт умирал ДО инициализации,
+// оставляя пустой экран без единого объяснения.
+try {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (!isStandalone && !localStorage.getItem('install-dismissed')) {
+    document.getElementById('install-hint').classList.add('show');
+  }
+} catch (_) {}
 document.getElementById('dismiss-install').addEventListener('click', () => {
   document.getElementById('install-hint').classList.remove('show');
-  localStorage.setItem('install-dismissed', '1');
+  try { localStorage.setItem('install-dismissed', '1'); } catch (_) {}
 });
 
 /* =========================================================
    INIT
    ========================================================= */
 load();
+if (!storageReadable) {
+  setTimeout(() => showToast(
+    'Не удалось прочитать сохранённые данные. Ничего не вводи — сначала восстанови копию.', 6000, true), 400);
+}
+// Прошедшие дни без явного типа автобуса фиксируем текущим дефолтом,
+// чтобы будущая смена дефолта не пересчитала уже закрытые месяцы.
+if (freezePastBus()) save();
 // Очистка устаревшего ключа настроек (от предыдущей версии с UI настроек)
 try { localStorage.removeItem('payroll-settings-v1'); } catch(_) {}
 const now = new Date();
