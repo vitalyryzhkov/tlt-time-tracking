@@ -1367,6 +1367,10 @@ const STORAGE_KEY = 'work-tracker-v1';
 // Пишется до первой миграции и больше не трогается — страховка на случай,
 // если миграция что-то испортит.
 const PREMIGRATION_KEY = 'work-tracker-v1-before-bus';
+// Снимок последнего успешно прочитанного состояния: обновляется при каждом
+// запуске, где хранилище удалось разобрать. Именно его отдаёт аварийная
+// выгрузка — снимок момента обновления к тому времени устареет на месяцы.
+const LASTGOOD_KEY = 'work-tracker-v1-last-good';
 // Если прочитать хранилище не удалось, писать в него нельзя: пустое состояние
 // затрёт данные, которые мы просто не смогли разобрать.
 let storageReadable = true;
@@ -1430,6 +1434,10 @@ function load() {
         }
       });
       migrateShifts(state.shifts);
+      // Хранилище разобралось — запоминаем его как последнее заведомо целое.
+      try {
+        localStorage.setItem(LASTGOOD_KEY, JSON.stringify({ savedAt: new Date().toISOString(), raw: raw }));
+      } catch (_) {}
     }
   } catch(e) {
     console.warn('load failed', e);
@@ -2975,13 +2983,9 @@ function exportCSV() {
     ]);
   });
   const csv = rows.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'tlt-tracker.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  // Через downloadText: на мобильном Safari якорь должен побывать в документе,
+  // а Blob-ссылку нельзя отзывать сразу — иначе скачивание срывается молча.
+  downloadText('\uFEFF' + csv, 'tlt-tracker.csv', 'text/csv;charset=utf-8');
 }
 
 /* =========================================================
@@ -2997,13 +3001,20 @@ const BACKUP_FORMAT = 'tlt-tracker-backup';
 // данные придётся доставать руками через инструменты разработчика.
 const PRERESTORE_KEY = 'work-tracker-v1-before-restore';
 
-function backupFileName(prefix) {
-  const d = new Date();
+function backupFileName(prefix, when) {
+  const d = when || new Date();
   return prefix + d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + '.json';
 }
 
-function downloadText(text, filename) {
-  const blob = new Blob([text], { type: 'application/json' });
+// Дата снимка человеческим видом, или null если её нет.
+function snapshotDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function downloadText(text, filename, mime) {
+  const blob = new Blob([text], { type: mime || 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -3024,14 +3035,34 @@ function exportBackup() {
   // файлом с обычным именем: отличить его от настоящей копии можно было бы
   // только заглянув внутрь. Вместо этого отдаём аварийный снимок как есть.
   if (!storageReadable) {
-    let raw = null;
-    try { raw = localStorage.getItem(PREMIGRATION_KEY); } catch (_) {}
+    // Берём самый свежий снимок: «последнее прочитанное», а если его нет —
+    // снимок момента обновления приложения.
+    let raw = null, when = null;
+    try {
+      const lg = localStorage.getItem(LASTGOOD_KEY);
+      if (lg) {
+        const parsedLg = JSON.parse(lg);
+        if (parsedLg && typeof parsedLg.raw === 'string') {
+          raw = parsedLg.raw;
+          when = snapshotDate(parsedLg.savedAt);
+        }
+      }
+    } catch (_) {}
+    if (!raw) {
+      try { raw = localStorage.getItem(PREMIGRATION_KEY); } catch (_) {}
+    }
     if (!raw) {
       showToast('Данные не читаются, и снимка в телефоне нет — выгружать нечего', 5000, true);
       return;
     }
-    downloadText(raw, backupFileName('tlt-tracker-RESCUE-'));
-    showToast('Данные не читаются. Выгружен аварийный снимок — отправь этот файл и пока ничего не вводи', 6500, true);
+    // Дата в имени файла и в сообщении — снимка, а не сегодняшняя: иначе файл
+    // выглядит свежей копией, хотя внутри может быть состояние многомесячной давности.
+    downloadText(raw, backupFileName('tlt-tracker-RESCUE-', when));
+    const kogda = when
+      ? 'на ' + pad(when.getDate()) + '.' + pad(when.getMonth() + 1) + '.' + when.getFullYear()
+      : 'снятый при обновлении приложения';
+    showToast('Данные не читаются. Выгружен аварийный снимок ' + kogda
+      + ' — это НЕ сегодняшнее состояние. Отправь файл и пока ничего не вводи', 8000, true);
     return;
   }
   if (Object.keys(state.shifts).length === 0) {
@@ -3071,8 +3102,11 @@ function parseBackup(text) {
   })) {
     throw new Error('битые записи');
   }
-  const bus = (data.settings && data.settings.defaultBus === 'accordion') ? 'accordion' : 'regular';
-  return { shifts, settings: { defaultBus: bus }, pensionRate: data.pensionRate, days: keys.length };
+  // Настроек в файле может не быть (например, это аварийный снимок). Тогда
+  // ничего не навязываем — текущая настройка остаётся как была.
+  const rawBus = data.settings && data.settings.defaultBus;
+  const bus = (rawBus === 'accordion' || rawBus === 'regular') ? rawBus : null;
+  return { shifts, defaultBus: bus, pensionRate: data.pensionRate, days: keys.length };
 }
 
 function importBackup(text) {
@@ -3094,7 +3128,7 @@ function importBackup(text) {
     if (cur) localStorage.setItem(PRERESTORE_KEY, cur);
   } catch (_) {}
   state.shifts = migrateShifts(parsed.shifts);
-  state.settings = parsed.settings;
+  if (parsed.defaultBus) state.settings.defaultBus = parsed.defaultBus;
   // Восстановление — осознанное действие: даже если старое содержимое
   // хранилища не читалось, теперь в памяти заведомо валидные данные и писать
   // их можно. Нечитаемый оригинал уже лежит в PREMIGRATION_KEY.
@@ -3569,6 +3603,7 @@ document.getElementById('clear-btn').addEventListener('click', () => {
     try {
       localStorage.removeItem(PREMIGRATION_KEY);
       localStorage.removeItem(PRERESTORE_KEY);
+      localStorage.removeItem(LASTGOOD_KEY);
     } catch (_) {}
     save();
     renderToday();
