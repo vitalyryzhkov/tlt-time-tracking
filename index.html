@@ -738,6 +738,22 @@
   }
   .bus-btn.active { background: var(--bg-input); color: var(--text); }
   .bus-btn[data-bus="accordion"].active { color: #e3bf6b; }
+  /* Предупреждение про дни без плана — под карточкой «Δ к плану» */
+  .no-plan-note {
+    font-size: 12.5px;
+    color: #d4a543;
+    background: rgba(212, 165, 67, 0.10);
+    border: 1px solid rgba(212, 165, 67, 0.28);
+    border-radius: 10px;
+    padding: 9px 12px;
+    margin: -6px 0 12px;
+    line-height: 1.45;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .no-plan-note:active { transform: scale(0.995); }
+
   .bus-default-note {
     font-size: 12px;
     color: var(--text-faint);
@@ -1132,6 +1148,7 @@
       <div class="stat-label">Δ к плану (за уже отработанные дни)</div>
       <div class="stat-value" id="s-delta">—</div>
     </div>
+    <p class="no-plan-note" id="no-plan-note" style="display: none;"></p>
 
     <div class="stats" style="grid-template-columns: repeat(2, 1fr);">
       <div class="stat">
@@ -2557,9 +2574,15 @@ function renderMonth() {
    AGGREGATION & STATS VIEW
    ========================================================= */
 // Aggregate shifts between two date-keys (inclusive). Keys are 'YYYY-MM-DD'.
+// Δ считается только по дням, где есть И факт, И план: иначе день без плана
+// отдаёт свои часы в плюс целиком, и месячная Δ расходится с тем, что видно
+// в таблице по дням. Дни, выпавшие из-за отсутствия плана, возвращаем
+// отдельным списком — про них надо сказать вслух, а не молча пропустить.
 function aggregateRange(fromKey, toKey) {
   let totalPlan = 0, totalWorked = 0;
-  let daysWorked = 0, planForWorkedDays = 0;
+  let daysWorked = 0;
+  let deltaWorked = 0, deltaPlan = 0, deltaDays = 0;
+  const noPlanDays = [];
   let extras = 0, vacation = 0, sick = 0, off = 0;
   let totalKm = 0;
 
@@ -2583,16 +2606,24 @@ function aggregateRange(fromKey, toKey) {
     if (!isUnconfirmed && (st === 'work' || st === 'extra' || isReserveWorked) && w != null) {
       totalWorked += w;
       daysWorked++;
-      if ((st === 'work' || st === 'reserve') && planMin) planForWorkedDays += planMin;
-      if (st === 'extra') extras++;
+      if (st === 'extra') {
+        extras++;   // подработки в графике нет, сравнивать не с чем — в Δ не идёт
+      } else if (planMin) {
+        deltaWorked += w;
+        deltaPlan += planMin;
+        deltaDays++;
+      } else {
+        noPlanDays.push(k);
+      }
     }
     if (st === 'vacation') vacation++;
     if (st === 'sick') sick++;
     if (st === 'off') off++;
   });
 
-  const delta = totalWorked - planForWorkedDays;
-  return { totalPlan, totalWorked, daysWorked, planForWorkedDays, delta, extras, vacation, sick, off, totalKm };
+  const delta = deltaWorked - deltaPlan;
+  return { totalPlan, totalWorked, daysWorked, planForWorkedDays: deltaPlan, delta,
+           deltaDays, noPlanDays, extras, vacation, sick, off, totalKm };
 }
 
 function renderStats() {
@@ -2618,7 +2649,7 @@ function renderStats() {
   document.getElementById('s-plan').textContent = fmtMin(agg.totalPlan);
   document.getElementById('s-worked').textContent = fmtMin(agg.totalWorked);
   const deltaEl = document.getElementById('s-delta');
-  if (agg.daysWorked === 0) {
+  if (agg.deltaDays === 0) {
     deltaEl.textContent = '—';
     deltaEl.classList.remove('pos', 'neg');
   } else {
@@ -2626,6 +2657,7 @@ function renderStats() {
     deltaEl.classList.toggle('pos', agg.delta >= 0);
     deltaEl.classList.toggle('neg', agg.delta < 0);
   }
+  renderNoPlanNote(agg.noPlanDays);
   document.getElementById('s-days').textContent = agg.daysWorked;
   document.getElementById('s-extra').textContent = agg.extras;
   document.getElementById('s-vacation').textContent = agg.vacation;
@@ -2682,6 +2714,46 @@ function renderStats() {
   renderBusDefault();
   renderPayroll();
 }
+
+/* =========================================================
+   ДНИ БЕЗ ПЛАНА
+   =========================================================
+   Отработанный день без плана выпадает из Δ. Молчать об этом нельзя:
+   раньше его часы уходили в Δ целиком и завышали её, теперь он из неё
+   исчезает — и без строки внизу это было бы незаметно.
+   ========================================================= */
+let noPlanJumpTo = null;
+
+function renderNoPlanNote(days) {
+  const el = document.getElementById('no-plan-note');
+  if (!el) return;
+  if (!days || days.length === 0) {
+    el.style.display = 'none';
+    noPlanJumpTo = null;
+    return;
+  }
+  noPlanJumpTo = days[0];
+  const shown = days.slice(0, 6)
+    .map(k => k.slice(8) + '.' + k.slice(5, 7))
+    .join(', ');
+  const tail = days.length > 6 ? ' и ещё ' + (days.length - 6) : '';
+  const n = days.length;
+  const n10 = n % 10, n100 = n % 100;
+  const word = (n10 === 1 && n100 !== 11) ? 'день'
+             : (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) ? 'дня'
+             : 'дней';
+  el.textContent = '⚠ Без плана: ' + shown + tail + ' — часы ' + (days.length === 1 ? 'этого дня' : 'этих дней')
+    + ' в Δ не учтены. Нажми, чтобы проставить план (' + n + ' ' + word + ').';
+  el.style.display = 'block';
+}
+
+document.getElementById('no-plan-note').addEventListener('click', () => {
+  if (!noPlanJumpTo) return;
+  const y = parseInt(noPlanJumpTo.slice(0, 4), 10);
+  const m = parseInt(noPlanJumpTo.slice(5, 7), 10) - 1;
+  setCurrentMonth(y, m);
+  switchView('month');
+});
 
 /* =========================================================
    НАСТРОЙКА «АВТОБУС ПО УМОЛЧАНИЮ»
