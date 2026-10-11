@@ -2028,9 +2028,10 @@ sunday: {
 }
 };
 
-// Троллейбусные маршруты. Нужны затем, что на сайте расписаний у них
-// свой адрес: у автобуса «…/72-avtobus», у троллейбуса «…/72-trolleybus»,
-// и автобусный адрес для них отдаёт 404.
+// Троллейбусные маршруты. Нужны затем, что на сайте расписаний у них свой
+// раздел: у автобуса «#bus/73/ru», у троллейбуса «#trol/72/ru».
+// Список сверен с сайтом TLT 2026-10-11: там в разделе троллейбусов ровно
+// эти пять маршрутов.
 const TROLLEY_ROUTES = ['72', '81', '83', '84', '85'];
 function isTrolleyRoute(route) {
   return TROLLEY_ROUTES.indexOf(String(route).trim()) !== -1;
@@ -3519,12 +3520,26 @@ document.querySelectorAll('#bus-default-switch .bus-btn').forEach(b => {
   btn.addEventListener('click', doSearch);
 })();
 
-// Открыть расписание маршрута на thetimey.com
+// Открыть расписание маршрута на сайте TLT (transport.tallinn.ee).
+// Раньше вело на thetimey.com — осенью 2026 там переделали страницу маршрута,
+// и карта перестала рисоваться совсем: контейнер крутит спиннер, к тайлам
+// браузер не обращается. У TLT это свой сайт: расписание по будням и выходным,
+// остановки и рабочая кнопка «Показать на карте» (Leaflet + OpenStreetMap).
+// Адрес с решёткой: #bus/73/ru, #trol/72/ru или #nightbus/91/ru,
+// последний сегмент — язык.
+// Ночные маршруты (90–99, у нас в таблице 91, 92, 94, 95, 96) лежат на сайте
+// в своём разделе: по #bus/91 страница отвечает «Error: route not found».
+function routeSection(route) {
+  if (isTrolleyRoute(route)) return 'trol';
+  const n = parseInt(String(route).trim(), 10);
+  if (n >= 90 && n <= 99) return 'nightbus';
+  return 'bus';
+}
+
 function openRouteSchedule(route) {
   if (!route) return;
-  const n = encodeURIComponent(String(route).toLowerCase().trim());
-  const kind = isTrolleyRoute(route) ? '-trolleybus' : '-avtobus';
-  const url = 'https://thetimey.com/ru/estoniya/tallin/tallinn-transport/raspisaniya/' + n + kind;
+  const n = encodeURIComponent(String(route).trim());
+  const url = 'https://transport.tallinn.ee/#' + routeSection(route) + '/' + n + '/ru';
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
