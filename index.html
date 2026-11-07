@@ -214,6 +214,28 @@
     justify-content: space-between;
     align-items: center;
   }
+  .lunch-plan {
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    color: var(--info);
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.12s;
+  }
+  .lunch-plan:hover { border-color: var(--info); }
+  .lunch-plan:active { transform: scale(0.96); }
+  .lunch-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
   .time-block-duration {
     font-size: 12px;
     color: var(--accent);
@@ -1028,7 +1050,10 @@
     <div class="time-block">
       <div class="time-block-title">
         <span>Обед</span>
-        <span class="time-block-duration" id="dur-lunch"></span>
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button type="button" class="lunch-plan" id="lunch-plan-today" style="display:none;"></button>
+          <span class="time-block-duration" id="dur-lunch"></span>
+        </span>
       </div>
       <div class="time-pair">
         <div class="time-field">
@@ -1308,7 +1333,10 @@
         </div>
       </div>
 
-      <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 8px;">Обед</div>
+      <div class="lunch-title-row" style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 8px;">
+        <span>Обед</span>
+        <button type="button" class="lunch-plan" id="lunch-plan-modal" style="display:none;"></button>
+      </div>
       <div class="time-pair">
         <div class="time-field">
           <span class="time-field-label">Начало</span>
@@ -2184,6 +2212,59 @@ function shiftNightMinutes(shift) {
   return Math.max(0, night);
 }
 
+/* =========================================================
+   ОБЕД, КОТОРЫЙ ПОДРАЗУМЕВАЕТ ПЛАН
+   =========================================================
+   В наряде обед печатают только у смен с разрывом. У обычных смен он есть,
+   но не напечатан — и виден как разница между окном смены и колонкой Tunnid.
+   Tunnid — это и есть план из месячного графика: по выгрузке владельца за
+   апрель–сентябрь 2026 у 62 рабочих дней из 84 «план = конец − начало − обед»
+   сходится точно, а сам обед там от 30 до 56 минут.
+
+   Исключение — план ровно «8:00». Это заполнитель: такую запись приложение
+   заводит само (см. commitField и shiftHasContent, где «8:00» тоже не считается
+   своим содержимым), и её же, по словам владельца, он ставит руками, переводя
+   резерв в рабочий день. Планом из графика она не является: в выгрузке
+   19 рабочих дней с планом «8:00», и ни на одном «план = окно − обед»
+   не выполняется, а в ноябрьском наряде Tunnid ровно 8:00 встречается 1 раз
+   из 471 (будни, 1/12 смена 2). Поэтому по «8:00» обед не предлагаем: на
+   шести днях выгрузки подсказка ошиблась бы на 8–30 минут, а теряется из-за
+   этого одна настоящая восьмёрка на 428 смен наряда.
+   Поэтому длину обеда можно посчитать, а вот время его начала — нет: в наряде
+   его нет нигде. Поэтому ставим середину смены (владелец подтвердил
+   2026-11-07, что после 22:00 обеда не бывает, так что ночные часы середина
+   не заденет) и показываем кнопкой, что именно подставится.
+   ========================================================= */
+const PLANNED_LUNCH_MIN = 20;   // короче — скорее опечатка в плане, чем обед
+const PLANNED_LUNCH_MAX = 75;   // длиннее — скорее переработка, чем обед
+const PLACEHOLDER_PLAN = '8:00';  // план, который приложение ставит само
+
+// Длина обеда по плану, в минутах. null — если считать не из чего или
+// разница не похожа на обед.
+function plannedLunchMinutes(startStr, endStr, planStr) {
+  if (String(planStr || '').trim() === PLACEHOLDER_PLAN) return null;
+  const st = parseTime(startStr), en = parseTime(endStr), plan = parseTime(planStr);
+  if (st == null || en == null || plan == null) return null;
+  let win = en - st;
+  if (win < 0) win += 1440;
+  const diff = win - plan;
+  if (diff < PLANNED_LUNCH_MIN || diff > PLANNED_LUNCH_MAX) return null;
+  return diff;
+}
+
+// Обед серединой смены: равные куски работы до и после.
+function plannedLunchWindow(startStr, endStr, len) {
+  const st = parseTime(startStr), en = parseTime(endStr);
+  if (st == null || en == null || len == null) return null;
+  let win = en - st;
+  if (win < 0) win += 1440;
+  const inMin = st + Math.round((win - len) / 2);
+  const outMin = inMin + len;
+  const fmt = (x) => pad(Math.floor((x % 1440 + 1440) % 1440 / 60)) + ':' + pad(((x % 60) + 60) % 60);
+  return { lunchIn: fmt(inMin), lunchOut: fmt(outMin),
+           night: nightOverlap(inMin, outMin, PAYROLL.nightStart, PAYROLL.nightEnd) > 0 };
+}
+
 // Katkestus-минуты за день: если разрыв (обед) превышает порог (>2ч),
 // то надбавка katkestus начисляется на ВСЕ отработанные часы этой смены.
 // (Сверено с расчёткой: длинная смена 8.33ч отработки → katkestus 8.33ч.)
@@ -2397,6 +2478,67 @@ function commitField(field) {
   renderMonth();
 }
 
+// Кнопка «обед по плану» в блоке обеда: показываем, пока обед не заполнен
+// и пока план с временем дают правдоподобную длину.
+function renderPlannedLunchHint(scope) {
+  const btn = document.getElementById(scope === 'modal' ? 'lunch-plan-modal' : 'lunch-plan-today');
+  if (!btn) return;
+  let start, end, plan, filled;
+  if (scope === 'modal') {
+    start = readRowValue('start', 'modal');
+    end = readRowValue('end', 'modal');
+    plan = document.getElementById('shift-plan').value.trim();
+    filled = !!readRowValue('lunchIn', 'modal') || !!readRowValue('lunchOut', 'modal');
+  } else {
+    const s = state.shifts[todayKey()] || {};
+    start = readRowValue('start');
+    end = readRowValue('end');
+    plan = s.plan;
+    filled = !!readRowValue('lunchIn') || !!readRowValue('lunchOut');
+  }
+  const len = filled ? null : plannedLunchMinutes(start, end, plan);
+  if (len == null) { btn.style.display = 'none'; return; }
+  btn.textContent = 'Обед по плану (' + fmtMin(len) + ')';
+  btn.style.display = '';
+}
+
+function applyPlannedLunch(scope) {
+  let start, end, plan;
+  if (scope === 'modal') {
+    start = readRowValue('start', 'modal');
+    end = readRowValue('end', 'modal');
+    plan = document.getElementById('shift-plan').value.trim();
+  } else {
+    start = readRowValue('start');
+    end = readRowValue('end');
+    plan = (state.shifts[todayKey()] || {}).plan;
+  }
+  const len = plannedLunchMinutes(start, end, plan);
+  if (len == null) { renderPlannedLunchHint(scope); return; }
+  const w = plannedLunchWindow(start, end, len);
+  if (!w) return;
+  if (scope === 'modal') {
+    setRowValue('lunchIn', w.lunchIn, 'modal');
+    setRowValue('lunchOut', w.lunchOut, 'modal');
+    renderPlannedLunchHint('modal');
+  } else {
+    // Через commitField нельзя: он перерисовывает «Сегодня» из записи, и
+    // коммит первого поля затёр бы второе, ещё не сохранённое. Пишем оба
+    // поля сразу — остальное как у ручного ввода, включая confirmed.
+    const k = todayKey();
+    if (!state.shifts[k]) state.shifts[k] = { plan: '8:00', status: 'work' };
+    const s = state.shifts[k];
+    s.lunchIn = w.lunchIn;
+    s.lunchOut = w.lunchOut;
+    s.confirmed = true;
+    save();
+    renderToday();
+    renderMonth();
+  }
+  showToast('Обед ' + w.lunchIn + '–' + w.lunchOut + ' — серединой смены'
+    + (w.night ? ', попал в ночные часы, проверь' : '. Поправь, если было иначе'), 3000);
+}
+
 function setupTimeInput(row) {
   const field = row.dataset.field;
   const scope = row.dataset.scope === 'modal' ? 'modal' : 'today';
@@ -2529,6 +2671,8 @@ function renderToday() {
     }
     row.classList.toggle('filled', !!s[field]);
   });
+
+  renderPlannedLunchHint();
 
   // Pair durations
   const shiftDur = pairDuration(s.start, s.end);
@@ -2948,6 +3092,7 @@ function openShiftModal(dateK) {
   document.getElementById('shift-order').value = s.routeOrder || '';
   document.getElementById('shift-vahetus').value = s.vahetus ? String(s.vahetus) : '';
   document.getElementById('shift-km').value = (s.km != null ? String(s.km) : '');
+  renderPlannedLunchHint('modal');
   // Автобус: явный выбор на день или «как в наряде / как по умолчанию»
   renderModalBusHint();
   setModalBus(s.bus);
@@ -3423,6 +3568,16 @@ document.querySelectorAll('#shift-bus-chips .chip').forEach(c => {
   c.addEventListener('click', () => setModalBus(c.dataset.bus));
 });
 
+// Любая правка времени или плана в карточке дня меняет подсказку про обед
+(function () {
+  const modal = document.getElementById('modal-shift');
+  if (modal) modal.addEventListener('input', () => renderPlannedLunchHint('modal'));
+})();
+[['lunch-plan-modal', 'modal'], ['lunch-plan-today', 'today']].forEach(([id, scope]) => {
+  const btn = document.getElementById(id);
+  if (btn) btn.addEventListener('click', () => applyPlannedLunch(scope));
+});
+
 // Дата в карточке дня: от неё зависит тип дня, а значит и тип автобуса
 // по наряду — у части очередей он разный в будни и в выходные.
 (function () {
@@ -3486,6 +3641,7 @@ document.getElementById('shift-recalc-time').addEventListener('click', () => {
   setRowValue('lunchIn', times.lunchIn, 'modal');
   setRowValue('lunchOut', times.lunchOut, 'modal');
   renderModalBusHint();
+  renderPlannedLunchHint('modal');
   showToast(times.lunchIn
     ? 'Время ' + times.start + '–' + times.end + ', обед ' + times.lunchIn + '–' + times.lunchOut
     : 'Время ' + times.start + '–' + times.end + ' (обеда в наряде нет)', 2600);
