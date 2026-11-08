@@ -64,6 +64,81 @@
     color: var(--text-dim);
   }
 
+  /* Parking */
+  .park-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+  #park-input {
+    font-size: 30px;
+    text-align: center;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .park-lane {
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 18px 0 2px;
+  }
+  .park-where { color: var(--text-dim); font-size: 14px; }
+  .park-where b { color: var(--text); font-weight: 600; }
+  .park-bus { font-size: 15px; color: var(--info); margin-top: 2px; }
+  .park-rows { margin-top: 16px; }
+  .park-row-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-bottom: 3px;
+  }
+  .park-row-head .on { color: var(--accent); font-weight: 600; }
+  .park-strip { display: block; width: 100%; height: 28px; }
+  .park-row + .park-row { margin-top: 3px; }
+  .park-island {
+    background: rgba(212, 165, 67, 0.22);
+    border: 1px solid rgba(212, 165, 67, 0.55);
+    border-radius: 4px;
+    color: var(--warning);
+    font-size: 11px;
+    text-align: center;
+    padding: 3px 6px;
+    margin: 5px 0;
+    letter-spacing: 0.02em;
+  }
+  .park-legend { font-size: 12px; color: var(--text-faint); margin-top: 8px; }
+  .park-entry {
+    text-align: right;
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 6px;
+  }
+  .park-map { display: block; width: 100%; height: auto; margin-top: 18px; }
+  .park-hint {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.45;
+    padding: 0 4px;
+  }
+  .park-alt {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .park-warn { color: var(--warning); font-size: 13px; margin-top: 12px; }
+  .park-empty { color: var(--text-faint); font-size: 14px; margin-top: 16px; }
+
   /* Tabs */
   .tabs {
     display: flex;
@@ -994,6 +1069,23 @@
     <button class="tab active" data-view="today">Сегодня</button>
     <button class="tab" data-view="month">Месяц</button>
     <button class="tab" data-view="stats">Итоги</button>
+    <button class="tab" data-view="park">Стоянка</button>
+  </div>
+
+  <!-- PARK -->
+  <div class="view" id="view-park">
+    <div class="today-card">
+      <label class="park-label" for="park-input" id="park-label">Номер места</label>
+      <input type="text" id="park-input" inputmode="numeric"
+             placeholder="например 193" autocomplete="off" maxlength="6">
+      <div id="park-result"></div>
+    </div>
+    <p class="park-hint">
+      От главного въезда: левее 11-й трассы, дальше левее 9-й, потом налево
+      левее 7-й — оттуда и вправо, и влево. В трассы 1–6 заезд со стороны 7-й.<br>
+      Места — из таблицы парка от <span id="park-date">—</span>, расположение рядов
+      и зарядок — с плана. Схема упрощённая, не чертёж.
+    </p>
   </div>
 
   <!-- TODAY -->
@@ -3510,15 +3602,326 @@ function showToast(msg, duration, force) {
   showToast._t = setTimeout(() => t.classList.remove('show'), duration || 2200);
 }
 
+/* ------------------------------------------------------------------ Парковка
+
+   Что откуда взято:
+
+   • номера мест, их порядок в ряду, что напротив чего и какой борт где стоит —
+     из таблицы парка «Korrektne tabel K62a trassid» от 25.10.2026. В ней на
+     каждую трассу блок из двух столбцов мест, и строки идут строка в строку:
+     место слева и место справа в одной строке стоят друг напротив друга.
+     Поэтому «напротив» берётся по той же позиции в соседнем ряду, а не
+     арифметикой над номерами — она разная у разных трасс (у 2-й пара
+     «58 ↔ 57», у 5-й «208 ↔ 213», у 4-й «152 ↔ 157»). Там, где пары
+     из таблицы на план не ложатся, стоит across: false (трасса 1).
+
+   • сколько у трассы рядов, где полоса зарядки и заправки и какие там зоны P —
+     с фотографий плана парка Kadaka tee 62a (AS Signaal, 28.10.2021). Оттуда же
+     нарезка трассы 8 на четыре ряда и место 335, которого в таблице нет:
+     у этой трассы порядок мест из таблицы, а границы рядов — с плана.
+
+   • то, что автобусы стоят носом к зарядке, и проезд по парку — со слов
+     владельца 2026-11-08. Он же сказал, что в трассы 1–6 заезжает со стороны
+     7-й трассы, а она на плане справа сверху: отсюда entry: 'right' и счёт
+     места «от въезда». Про трассы 7–12 он этого не говорил, там место
+     в ряду не считается от въезда.
+
+   Ряды нарисованы слева направо как на плане: у трасс 1–6 номера убывают,
+   у 7–12 растут. Длина полосы = число мест в ряду, ряды выровнены по левому
+   краю — это и есть выравнивание таблицы, а не замер по плану.
+
+   Чего в данных нет: мест 401–402 и 414–432 нет ни на плане, ни в таблице.
+   Они могли бы относиться к 12-й трассе — она как раз разорвана на 403–413
+   и 433–449, — но это догадка, поэтому 12-я помечена непроверенной.
+
+   Пересобрать после новой таблицы парка:
+   `python tools/build_park.py tabel.xlsx --write`. Саму таблицу в репозиторий
+   не класть и дату PARK_TABLE_DATE поправить руками.  */
+
+const PARK_TABLE_DATE = '25.10.2026';
+
+// --- PARK DATA START (tools/build_park.py) ---
+const PARK_LANES = [
+  { n: 1, note: 'P15 · P11 · P4', island: 'VA-7', entry: 'right', across: false,
+    warn: 'Нечётный ряд 1-й трассы разорван: 21–1 стоят наискось вдоль зарядки, а 29–23 — отдельной группой в углу слева. Поэтому место напротив тут не показываю, а счёт «от въезда» идёт по всему ряду, вместе с угловой четвёркой.', rows: [
+      { label: 'чётные', slots: ['30', '28', '26', '24', '22', '20', '18', '16', '14', '12', '10', '8', '6', '4', '2'] },
+      { label: 'нечётные: 29–23 в углу, 21–1 наискось', slots: ['29', '27', '25', '23', '21', '19', '17', '15', '13', '11', '9', '7', '5', '3', '1'] },
+    ] },
+  { n: 2, note: 'P14', island: 'VA-6', entry: 'right', rows: [
+      { label: 'чётные', slots: ['58', '56', '54', '52', '50', '48', '46', '44', '42', '40', '38', '36', '34', '32'] },
+      { label: 'нечётные', slots: ['57', '55', '53', '51', '49', '47', '45', '43', '41', '39', '37', '35', '33', '31'] },
+    ] },
+  { n: 3, note: 'P26 · P15 · P8', island: 'VA-4 / VA-5', entry: 'right', rows: [
+      { label: 'чётные', slots: ['104', '102', '100', '98', '96', '94', '92', '90', '88', '86', '84', '82', '80', '78', '76', '74', '72', '70', '68', '66', '64', '62', '60'] },
+      { label: 'нечётные', slots: ['109', '107', '105', '103', '101', '99', '97', '95', '93', '91', '89', '87', '85', '83', '81', '79', '77', '75', '73', '71', '69', '67', '65', '63', '61', '59'] },
+    ] },
+  { n: 4, note: 'P24', island: 'VA-3', entry: 'right', rows: [
+      { label: 'чётные', slots: ['152', '150', '148', '146', '144', '142', '140', '138', '136', '134', '132', '130', '128', '126', '124', '122', '120', '118', '116', '114', '112', '110', '108', '106'] },
+      { label: 'нечётные', slots: ['157', '155', '153', '151', '149', '147', '145', '143', '141', '139', '137', '135', '133', '131', '129', '127', '125', '123', '121', '119', '117', '115', '113', '111'] },
+    ] },
+  { n: 5, note: 'P28', island: 'VA-2', entry: 'right', rows: [
+      { label: 'чётные', slots: ['208', '206', '204', '202', '200', '198', '196', '194', '192', '190', '188', '186', '184', '182', '180', '178', '176', '174', '172', '170', '168', '166', '164', '162', '160', '158', '156', '154'] },
+      { label: 'нечётные', slots: ['213', '211', '209', '207', '205', '203', '201', '199', '197', '195', '193', '191', '189', '187', '185', '183', '181', '179', '177', '175', '173', '171', '169', '167', '165', '163', '161', '159'] },
+    ] },
+  { n: 6, note: 'P28 · P19', island: 'VA-1', entry: 'right', rows: [
+      { label: 'чётные', slots: ['246', '244', '242', '240', '238', '236', '234', '232', '230', '228', '226', '224', '222', '220', '218', '216', '214', '212', '210', '208/2'] },
+      { label: 'нечётные', slots: ['269', '267', '265', '263', '261', '259', '257', '255', '253', '251', '249', '247', '245', '243', '241', '239', '237', '235', '233', '231', '229', '227', '225', '223', '221', '219', '217', '215'] },
+    ] },
+  { n: 7, note: 'P25 · P19 · P8 · P5', island: '',
+    warn: 'Ряды 7-й трассы очень разной длины: 13 мест против 44. Что напротив чего, взято из таблицы парка и на плане не проверено.', rows: [
+      { label: 'короткий ряд, чётные', slots: ['248', '250', '252', '254', '256', '258', '260', '262', '264', '266', '268', '270', '272'] },
+      { label: 'длинный ряд', slots: ['271', '273', '274', '275', '276', '277', '278', '279', '280', '281', '282', '283', '284', '285', '286', '287', '288', '289', '290', '291', '292', '293', '294', '295', '296', '297', '298', '299', '300', '301', '302', '303', '304', '305', '306', '307', '308', '309', '310', '311', '312', '313', '314', '315'] },
+    ] },
+  { n: 8, note: 'P10 · P7 · P4', rows: [
+      { label: 'P10, ряд 1', slots: ['316', '317', '318', '319', '320', '321', '322', '323', '324', '325'] },
+      { label: 'P10, ряд 2', slots: ['326', '327', '328', '329', '330', '331', '332', '333', '334', '335'] },
+      { label: 'P7', slots: ['336', '337', '338', '339', '340', '341', '342'] },
+      { label: 'P4', slots: ['343', '344', '345', '346'] },
+    ] },
+  { n: 9, note: 'P13 · P11', island: '', rows: [
+      { label: 'чётные', slots: ['358', '360', '362', '364', '366', '368', '370', '372', '374', '376', '378', '380', '382'] },
+      { label: 'нечётные', slots: ['357', '359', '361', '363', '365', '367', '369', '371', '373', '375', '377'] },
+    ] },
+  { n: 10, note: 'P10', rows: [
+      { label: 'ряд', slots: ['347', '348', '349', '350', '351', '352', '353', '354', '355', '356'] },
+    ] },
+  { n: 11, note: 'P10, два участка',
+    warn: 'На плане 11-я трасса — два участка по 10 мест со сдвигом, а в таблице парка это один список из 20. Как они стоят друг относительно друга, я не проверил.', rows: [
+      { label: 'ряд', slots: ['400', '399', '398', '397', '396', '395', '394', '393', '392', '391', '390', '389', '388', '387', '386', '385', '384', '383', '381', '379'] },
+    ] },
+  { n: 12, note: 'центр парка',
+    warn: 'Трассу 12 я на плане крупно не видел: список и порядок мест взяты из таблицы парка, а как они стоят на земле — не проверено.', rows: [
+      { label: 'по таблице парка', slots: ['433', '434', '435', '436', '437', '438', '439', '440', '441', '442', '443', '444', '445', '446', '447', '448', '449', '403', '404', '405', '406', '407', '408', '409', '410', '411', '412', '413'] },
+    ] },
+];
+
+// Расстановка бортов по местам в репозиторий не идёт:
+// это внутренний документ парка, а сайт публичный. Ждёт
+// шифрования, см. SESSION-HANDOFF. Собрать с ней:
+// python tools/build_park.py tabel.xlsx --write --buses
+const PARK_BUSES = {};
+// --- PARK DATA END ---
+
+// Схема парка: трасса -> [x, y, ширина, высота] в системе координат 0 0 200 150.
+// Пропорции сняты с общего вида плана на глаз, это схема, а не чертёж.
+const PARK_MAP = {
+  1:  [14, 100, 54, 18], 2:  [12, 82, 58, 15], 3:  [10, 64, 62, 15],
+  4:  [10, 46, 62, 15],  5:  [10, 28, 62, 15], 6:  [10, 10, 62, 15],
+  7:  [78, 14, 74, 16],  8:  [158, 12, 36, 26],
+  9:  [146, 46, 16, 28], 10: [166, 44, 16, 26],
+  11: [146, 80, 48, 16], 12: [78, 36, 62, 56]
+};
+
+// Сборка может идти без расстановки бортов (см. tools/build_park.py --buses):
+// тогда поиск по борту и подпись «там стоит борт» просто не показываются.
+const PARK_HAS_BUSES = Object.keys(PARK_BUSES).length > 0;
+
+let PARK_SLOT_BUS = null;
+function parkBusAt(slot) {
+  if (!PARK_SLOT_BUS) {
+    PARK_SLOT_BUS = {};
+    Object.keys(PARK_BUSES).forEach(bus => { PARK_SLOT_BUS[PARK_BUSES[bus]] = bus; });
+  }
+  return PARK_SLOT_BUS[slot] || null;
+}
+
+// Место вида «208/2» существует (трасса 6), а «/» на цифровой клавиатуре
+// телефона нет. Если набрали «208», предлагаем дробное кнопкой.
+function parkFractionOf(slot) {
+  if (slot.indexOf('/') >= 0) return null;
+  for (const lane of PARK_LANES) {
+    for (const row of lane.rows) {
+      const alt = row.slots.find(s => s.indexOf(slot + '/') === 0);
+      if (alt) return alt;
+    }
+  }
+  return null;
+}
+
+function parkFindSlot(slot) {
+  for (const lane of PARK_LANES) {
+    for (let r = 0; r < lane.rows.length; r++) {
+      const i = lane.rows[r].slots.indexOf(slot);
+      if (i >= 0) return { lane: lane, row: lane.rows[r], rowIndex: r, index: i };
+    }
+  }
+  return null;
+}
+
+// noseDown — в какую сторону смотрит морда: к зарядке, то есть вниз у верхней
+// полосы и вверх у нижней. null — у трасс без зарядки, там носы не рисуем.
+function parkStripSvg(row, hitIndex, acrossIndex, scaleCount, noseDown) {
+  const cw = 12, top = 2, h = 26, count = row.slots.length;
+  const span = Math.max(scaleCount || 0, count);
+  let cells = '';
+  for (let i = 0; i < count; i++) {
+    const on = i === hitIndex, near = i === acrossIndex;
+    const x = i * cw + 0.7;
+    cells += '<rect x="' + x.toFixed(1) + '" y="' + top +
+             '" width="' + (cw - 1.4) + '" height="' + h + '" rx="2"' +
+             ' fill="' + (on ? 'var(--accent)' : near ? 'var(--accent-dim)' : 'var(--bg-input)') + '"' +
+             ' stroke="' + (on || near ? 'var(--accent)' : 'var(--border)') + '" stroke-width="0.8"/>';
+    if (noseDown !== null && noseDown !== undefined) {
+      const cx = i * cw + cw / 2, half = cw * 0.3;
+      const tip = noseDown ? top + h - 1.5 : top + 1.5;
+      const base = noseDown ? top + h - 9.5 : top + 9.5;
+      cells += '<path d="M' + (cx - half) + ' ' + base + ' L' + (cx + half) + ' ' + base +
+               ' L' + cx + ' ' + tip + ' Z" fill="' +
+               (on ? 'var(--bg)' : 'var(--text-faint)') + '"/>';
+    }
+  }
+  return '<svg class="park-strip" viewBox="0 0 ' + (span * cw) + ' ' + (h + top * 2) +
+         '" preserveAspectRatio="none" aria-hidden="true">' + cells + '</svg>';
+}
+
+function parkMapSvg(activeLane) {
+  let out = '<svg class="park-map" viewBox="0 0 200 150" role="img" aria-label="Схема парка">';
+  Object.keys(PARK_MAP).forEach(key => {
+    const b = PARK_MAP[key], on = Number(key) === activeLane;
+    out += '<rect x="' + b[0] + '" y="' + b[1] + '" width="' + b[2] + '" height="' + b[3] +
+           '" rx="2" fill="' + (on ? 'var(--accent-dim)' : 'var(--bg-input)') +
+           '" stroke="' + (on ? 'var(--accent)' : 'var(--border)') + '" stroke-width="1"/>' +
+           '<text x="' + (b[0] + b[2] / 2) + '" y="' + (b[1] + b[3] / 2) +
+           '" text-anchor="middle" dominant-baseline="central" font-size="9"' +
+           ' font-weight="' + (on ? '700' : '400') + '"' +
+           ' fill="' + (on ? 'var(--accent)' : 'var(--text-faint)') + '">' + key + '</text>';
+  });
+  // главный въезд: чуть левее 11-й трассы и дальше на север по коридору
+  // между 12-й и 9/11 (он на схеме между x=140 и x=146)
+  out += '<path d="M143 140 L143 78" stroke="var(--text-faint)" stroke-width="1.2"' +
+         ' fill="none" stroke-dasharray="3 2"/>' +
+         '<path d="M143 74 l-3 6 h6 z" fill="var(--text-faint)"/>' +
+         '<text x="139" y="146" text-anchor="end" font-size="8" fill="var(--text-faint)">въезд</text>';
+  return out + '</svg>';
+}
+
+const PARK_UNLISTED = 'Номера 401–402 и 414–432 не подписаны ни на плане, ни в ' +
+  'таблице парка — похоже, таких мест просто нет.';
+
+function renderPark() {
+  const box = document.getElementById('park-result');
+  if (!box) return;
+  let raw = (document.getElementById('park-input').value || '').trim().toUpperCase();
+  if (!raw) {
+    box.innerHTML = '<p class="park-empty">Введи номер места из автобуса — ' +
+      'покажу трассу и ряд.' + (PARK_HAS_BUSES
+        ? ' Или номер борта, если место ещё не известно.' : '') + '</p>';
+    return;
+  }
+  if (!/^\d{1,4}(\/\d)?E?$/.test(raw)) {
+    box.innerHTML = '<p class="park-warn">Это не похоже на номер' +
+      (PARK_HAS_BUSES ? ' места или борта.' : ' места.') + '</p>';
+    return;
+  }
+  if (/^0\d*$/.test(raw.split('/')[0])) raw = String(parseInt(raw, 10)) + (raw.includes('/') ? raw.slice(raw.indexOf('/')) : '');
+
+  // В таблице у электробусов к номеру дописана E («2410E»), а на кузове
+  // её нет — иначе поиск по борту не работал бы для всей трассы 8.
+  const byBus = PARK_BUSES[raw] ? raw : (PARK_BUSES[raw + 'E'] ? raw + 'E' : null);
+  const slot = byBus ? PARK_BUSES[byBus] : raw;
+  const hit = parkFindSlot(slot);
+  if (!hit) {
+    const num = parseInt(slot, 10);
+    let msg = PARK_HAS_BUSES
+      ? 'Ни места, ни борта с номером ' + raw + ' в таблице парка нет.'
+      : 'Места ' + raw + ' на плане парка нет.';
+    if (num >= 401 && num <= 432) msg += ' ' + PARK_UNLISTED;
+    else if (num >= 1000) msg += PARK_HAS_BUSES
+      ? ' Таблица от ' + PARK_TABLE_DATE + ' — если борт пришёл в парк позже, его там не будет.'
+      : ' Похоже на номер борта, а поиск по бортам в этой сборке выключен.';
+    box.innerHTML = '<p class="park-warn">' + msg + '</p>';
+    return;
+  }
+
+  const lane = hit.lane, row = hit.row, count = row.slots.length;
+  const fromEntry = lane.entry === 'right';
+  const pos = fromEntry ? count - hit.index : hit.index + 1;
+  const left = row.slots[hit.index - 1], right = row.slots[hit.index + 1];
+  const other = lane.across === false || lane.rows.length !== 2
+                ? null : lane.rows[1 - hit.rowIndex];
+  const across = other && hit.index < other.slots.length ? other.slots[hit.index] : null;
+  const widest = lane.rows.reduce((m, r) => Math.max(m, r.slots.length), 0);
+  const hasIsland = lane.island !== undefined && lane.rows.length === 2;
+
+  let html = '<div class="park-lane">Трасса ' + lane.n + '</div>';
+  html += '<div class="park-where">' + row.label + ', <b>' + pos +
+          (fromEntry ? '-е от въезда' : '-е в ряду') + '</b> из ' + count +
+          ' · ' + lane.note + '</div>';
+  if (byBus) {
+    html += '<div class="park-bus">Борт ' + byBus +
+            (byBus === raw ? '' : ' (на кузове ' + raw + ')') +
+            ' — место ' + slot + ', по таблице от ' + PARK_TABLE_DATE + '</div>';
+  } else {
+    const bus = parkBusAt(slot);
+    if (bus) html += '<div class="park-bus">По таблице от ' + PARK_TABLE_DATE +
+                     ' там стоит борт ' + bus + '</div>';
+  }
+
+  html += '<div class="park-rows">';
+  lane.rows.forEach((r, i) => {
+    if (hasIsland && i === 1) {
+      html += '<div class="park-island">' + (lane.island ? lane.island + ' · ' : '') +
+              'зарядка и заправка</div>';
+    }
+    const mine = i === hit.rowIndex;
+    html += '<div class="park-row"><div class="park-row-head">' +
+            '<span' + (mine ? ' class="on"' : '') + '>' + r.label + '</span>' +
+            '<span>' + r.slots[0] + ' … ' + r.slots[r.slots.length - 1] + '</span></div>' +
+            parkStripSvg(r, mine ? hit.index : -1,
+                         !mine && across != null ? hit.index : -1,
+                         widest, hasIsland ? i === 0 : null) + '</div>';
+  });
+  html += '</div>';
+
+  html += '<div class="park-legend">' + (hasIsland
+    ? 'Стрелки — куда смотрит морда: автобусы стоят носом к зарядке.'
+    : 'Куда смотрит морда на этой трассе, не знаю: зарядки на плане тут нет.')
+    + '</div>';
+  if (fromEntry) html += '<div class="park-entry">заезд с этого конца, со стороны 7-й трассы ⟶</div>';
+
+  const near = [];
+  if (left !== undefined) near.push('слева ' + left);
+  if (right !== undefined) near.push('справа ' + right);
+  if (near.length === 1) near.unshift('с краю ряда');
+  if (across != null) near.push('напротив ' + across);
+  if (near.length) html += '<div class="park-where" style="margin-top:12px;">' +
+                           near.join(', ') + ' — как на полосе выше.</div>';
+
+  html += parkMapSvg(lane.n);
+  if (lane.warn) html += '<p class="park-warn">' + lane.warn + '</p>';
+  const alt = parkFractionOf(slot);
+  if (alt) html += '<div><button type="button" class="park-alt" data-slot="' + alt +
+                   '">В автобусе написано ' + alt + '? Нажми</button></div>';
+  box.innerHTML = html;
+  const altBtn = box.querySelector('.park-alt');
+  if (altBtn) altBtn.addEventListener('click', () => {
+    document.getElementById('park-input').value = altBtn.dataset.slot;
+    renderPark();
+  });
+}
+
 function switchView(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   if (name === 'stats') renderStats();
+  if (name === 'park') renderPark();
 }
 
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => switchView(t.dataset.view));
 });
+
+(() => {
+  const inp = document.getElementById('park-input');
+  if (inp) inp.addEventListener('input', renderPark);
+  const dateEl = document.getElementById('park-date');
+  if (dateEl) dateEl.textContent = PARK_TABLE_DATE;
+  if (PARK_HAS_BUSES) {
+    const lbl = document.getElementById('park-label');
+    if (lbl) lbl.textContent = 'Номер места или номер автобуса';
+    if (inp) inp.placeholder = '193 или 1560';
+  }
+})();
 
 // Period switch on stats view
 document.querySelectorAll('.period-btn').forEach(b => {
