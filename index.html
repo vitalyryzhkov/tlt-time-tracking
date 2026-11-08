@@ -3815,8 +3815,8 @@ function renderPark() {
   }
   if (/^0\d*$/.test(raw.split('/')[0])) raw = String(parseInt(raw, 10)) + (raw.includes('/') ? raw.slice(raw.indexOf('/')) : '');
 
-  // В таблице у электробусов к номеру дописана E («2410E»), а на кузове
-  // её нет — иначе поиск по борту не работал бы для всей трассы 8.
+  // В таблице у электробусов к номеру приписана буква E, а на кузове её нет —
+  // иначе поиск по борту не работал бы для всей трассы 8.
   const byBus = PARK_BUSES[raw] ? raw : (PARK_BUSES[raw + 'E'] ? raw + 'E' : null);
   const slot = byBus ? PARK_BUSES[byBus] : raw;
   const hit = parkFindSlot(slot);
@@ -3919,7 +3919,7 @@ document.querySelectorAll('.tab').forEach(t => {
   if (PARK_HAS_BUSES) {
     const lbl = document.getElementById('park-label');
     if (lbl) lbl.textContent = 'Номер места или номер автобуса';
-    if (inp) inp.placeholder = '193 или 1560';
+    if (inp) inp.placeholder = '193 или номер борта';
   }
 })();
 
