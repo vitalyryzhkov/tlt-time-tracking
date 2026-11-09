@@ -1034,6 +1034,21 @@
     align-items: center;
   }
   .install-hint.show { display: flex; }
+  .moved-hint {
+    background: rgba(240, 180, 80, 0.10);
+    border: 1px solid rgba(240, 180, 80, 0.35);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    display: none;
+  }
+  .moved-hint.show { display: block; }
+  .moved-hint .moved-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .moved-hint .btn { font-size: 13px; padding: 7px 12px; }
+  .moved-hint a.btn { text-decoration: none; display: inline-block; }
   .install-hint button {
     background: none;
     border: none;
@@ -1063,6 +1078,16 @@
   <div class="install-hint" id="install-hint">
     <span>📱 Добавь на главный экран — будет как приложение</span>
     <button id="dismiss-install">✕</button>
+  </div>
+
+  <div class="moved-hint" id="moved-hint">
+    <b>Приложение переехало.</b> Этот адрес скоро закроется, данные с него
+    сами не переедут. Сначала сохрани копию, потом открой новый адрес и
+    там нажми «Восстановить копию».
+    <div class="moved-actions">
+      <button class="btn" id="moved-backup-btn">💾 Сохранить копию</button>
+      <a class="btn" id="moved-link" href="#" target="_blank" rel="noopener">Открыть новый адрес →</a>
+    </div>
   </div>
 
   <div class="tabs">
@@ -1498,6 +1523,9 @@
    STATE & STORAGE
    ========================================================= */
 const STORAGE_KEY = 'work-tracker-v1';
+// New home of the app behind Cloudflare Access. Empty string — no banner.
+// When set, the old origin shows a "we moved" banner; the new origin hides it.
+const MOVED_TO = '';
 // Одноразовый снимок данных в том виде, в каком их оставила предыдущая версия.
 // Пишется до первой миграции и больше не трогается — страховка на случай,
 // если миграция что-то испортит.
@@ -4412,6 +4440,15 @@ document.getElementById('dismiss-install').addEventListener('click', () => {
   document.getElementById('install-hint').classList.remove('show');
   try { localStorage.setItem('install-dismissed', '1'); } catch (_) {}
 });
+(function setupMovedHint() {
+  if (!MOVED_TO) return;
+  let here = false;
+  try { here = new URL(MOVED_TO).origin === location.origin; } catch (_) {}
+  if (here) return;
+  document.getElementById('moved-link').href = MOVED_TO;
+  document.getElementById('moved-backup-btn').addEventListener('click', exportBackup);
+  document.getElementById('moved-hint').classList.add('show');
+})();
 
 /* =========================================================
    INIT
