@@ -1,0 +1,30 @@
+# Standalone Worker variant (needs your own domain, see README.md section
+# "Вариант Б"). The recommended path is the Pages Function in
+# ../functions/_middleware.js, which needs no wrangler at all.
+#
+# No secrets and no account id here: wrangler picks the account from
+# `wrangler login`; secrets are set with `wrangler secret put` or in the panel.
+
+name = "tlt-device-gate"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Bind the Worker to the hostname that the Access application protects.
+# Replace with your domain (the zone must be on Cloudflare).
+# routes = [{ pattern = "tlt.example.com", custom_domain = true }]
+
+[vars]
+# Where the static site actually lives (your Pages project).
+ORIGIN_URL = "https://REPLACE-ME.pages.dev"
+# Access team name: the part before .cloudflareaccess.com in Zero Trust.
+ACCESS_TEAM_DOMAIN = "REPLACE-ME"
+# "Application Audience (AUD) Tag" from the Access application overview.
+ACCESS_AUD = "REPLACE-ME"
+# Owner's email; only this address may open /admin/list and /admin/reset.
+ADMIN_EMAIL = "REPLACE-ME@example.com"
+# Devices allowed per email. Optional; defaults to DEVICE_LIMIT in src/index.js.
+DEVICE_LIMIT = "1"
+
+[[kv_namespaces]]
+binding = "DEVICES"
+id = "REPLACE-WITH-KV-NAMESPACE-ID"

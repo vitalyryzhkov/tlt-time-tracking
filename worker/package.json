@@ -1,0 +1,9 @@
+{
+  "name": "tlt-device-gate",
+  "private": true,
+  "type": "module",
+  "description": "One device per email gate for the TLT tracker behind Cloudflare Access",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
