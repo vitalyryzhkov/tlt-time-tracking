@@ -1367,6 +1367,7 @@
       <button class="btn" id="backup-save-btn">💾 Сохранить копию</button>
       <button class="btn" id="backup-load-btn">📂 Восстановить</button>
       <input type="file" id="backup-file" accept="application/json,.json" style="display:none;">
+      <button class="btn" id="backup-paste-btn" style="margin-top: 8px;">📋 Вставить текст копии</button>
     </div>
     <p class="bus-default-note" style="margin: 8px 2px 0;">
       Копия — файл со всеми записями. Отправь его себе в почту или в Telegram:
@@ -1499,6 +1500,21 @@
     <div class="modal-actions">
       <button class="btn" id="paste-cancel">Отмена</button>
       <button class="btn btn-primary" id="paste-import">Импортировать</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-backup-paste">
+  <div class="modal">
+    <h3>Вставить текст копии</h3>
+    <p style="font-size: 13px; color: var(--text-dim); margin: 0 0 12px;">
+      Если файл не читается: открой копию в любом приложении, где виден её текст
+      (Заметки, Telegram, почта), выдели всё, скопируй и вставь сюда.
+    </p>
+    <textarea id="backup-paste-text" placeholder="{&quot;format&quot;: &quot;tlt-tracker-backup&quot;, …}"></textarea>
+    <div class="modal-actions">
+      <button class="btn" id="backup-paste-cancel">Отмена</button>
+      <button class="btn btn-primary" id="backup-paste-import">Восстановить</button>
     </div>
   </div>
 </div>
@@ -4434,27 +4450,73 @@ document.getElementById('backup-save-btn').addEventListener('click', exportBacku
 document.getElementById('backup-load-btn').addEventListener('click', () => {
   document.getElementById('backup-file').click();
 });
+// Reads a picked File as text, trying several APIs in turn. In an iOS
+// home-screen web app FileReader can hang forever (no load, no error), so
+// each attempt gets a timeout and the next API is tried. Resolves with the
+// text, rejects with a short list of what failed.
+function readBackupFile(file) {
+  const TIMEOUT_MS = 4000;
+  const withTimeout = (name, promise) => new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(name + ': timeout')), TIMEOUT_MS);
+    promise.then((v) => { clearTimeout(t); resolve(v); },
+                 (e) => { clearTimeout(t); reject(new Error(name + ': ' + (e && e.name ? e.name : 'error'))); });
+  });
+  const attempts = [
+    ['text', () => (typeof file.text === 'function' ? file.text() : Promise.reject(new Error('n/a')))],
+    ['response', () => new Response(file).text()],
+    ['reader', () => new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ''));
+      r.onerror = () => reject(r.error || new Error('error'));
+      r.readAsText(file);
+    })],
+    ['objecturl', () => {
+      const u = URL.createObjectURL(file);
+      return fetch(u).then((res) => res.text()).finally(() => URL.revokeObjectURL(u));
+    }],
+  ];
+  const failures = [];
+  const tryNext = (i) => {
+    if (i >= attempts.length) return Promise.reject(new Error(failures.join(', ')));
+    let p;
+    try { p = attempts[i][1](); } catch (e) { p = Promise.reject(e); }
+    return withTimeout(attempts[i][0], p).then(
+      (text) => (typeof text === 'string' && text.length ? text : Promise.reject(new Error(attempts[i][0] + ': empty'))),
+    ).catch((e) => { failures.push(e.message); return tryNext(i + 1); });
+  };
+  return tryNext(0);
+}
+
 document.getElementById('backup-file').addEventListener('change', (e) => {
   const input = e.target;
   const file = input.files && input.files[0];
   if (!file) { showToast('Файл не выбран', 2000, true); return; }
   // Reset the input only after the read finishes: on iOS, clearing it right
-  // away can invalidate the File object and the read silently fails.
-  const reset = () => { try { input.value = ''; } catch (_) {} };
-  showToast('Читаю копию…', 1500, true);
-  const reader = new FileReader();
-  reader.onload = () => { reset(); importBackup(String(reader.result || '')); };
-  reader.onerror = () => {
-    reset();
-    const err = reader.error;
-    showToast('Не удалось прочитать файл' + (err && err.name ? ' (' + err.name + ')' : ''), 3500, true);
-  };
-  try {
-    reader.readAsText(file);
-  } catch (err) {
-    reset();
-    showToast('Не удалось открыть файл (' + (err && err.name ? err.name : 'ошибка') + ')', 3500, true);
-  }
+  // away can invalidate the File object.
+  const loadBtn = document.getElementById('backup-load-btn');
+  const reset = () => { try { input.value = ''; } catch (_) {} loadBtn.disabled = false; };
+  loadBtn.disabled = true;
+  showToast('Читаю копию…', 16000, true);
+  readBackupFile(file).then(
+    (text) => { reset(); importBackup(text); },
+    (err) => {
+      reset();
+      showToast('Не удалось прочитать файл (' + err.message + '). Попробуй «Вставить текст копии».', 6000, true);
+    },
+  );
+});
+document.getElementById('backup-paste-btn').addEventListener('click', () => {
+  document.getElementById('backup-paste-text').value = '';
+  document.getElementById('modal-backup-paste').classList.add('show');
+});
+document.getElementById('backup-paste-cancel').addEventListener('click', () => {
+  document.getElementById('modal-backup-paste').classList.remove('show');
+});
+document.getElementById('backup-paste-import').addEventListener('click', () => {
+  const text = document.getElementById('backup-paste-text').value.trim();
+  document.getElementById('modal-backup-paste').classList.remove('show');
+  if (!text) { showToast('Пусто — вставь текст копии', 2500, true); return; }
+  importBackup(text);
 });
 document.getElementById('clear-btn').addEventListener('click', () => {
   askConfirm('Удалить ВСЕ данные, включая аварийные копии в этом браузере? '
