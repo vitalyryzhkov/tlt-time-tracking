@@ -118,12 +118,6 @@
     margin-top: 6px;
   }
   .park-map { display: block; width: 100%; height: auto; margin-top: 18px; }
-  .park-hint {
-    font-size: 13px;
-    color: var(--text-dim);
-    line-height: 1.45;
-    padding: 0 4px;
-  }
   .park-alt {
     display: inline-block;
     margin-top: 12px;
@@ -226,6 +220,43 @@
     margin-top: 2px;
   }
   .today-km-value.empty { color: var(--text-faint); font-weight: 400; font-size: 15px; }
+  .today-body { gap: 8px; }
+  .today-right { display: flex; gap: 6px; align-items: stretch; flex-shrink: 0; }
+  .today-spot {
+    padding: 6px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    text-align: center;
+  }
+  .today-spot-row { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+    /* id selector: the generic input[type=text] rule below sets width:100% */
+  .today-spot-row #today-spot-input {
+    width: 60px;
+    padding: 2px 0;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .today-spot-row #today-spot-input:focus { outline: none; border-bottom-color: var(--accent); }
+  .today-spot-row #today-spot-input::placeholder { color: var(--text-faint); font-weight: 400; }
+  .today-spot-row button {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--accent);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .today-spot-row button:disabled { color: var(--text-faint); opacity: 0.5; cursor: default; }
 
   /* Напоминание о пробеге — три фазы по времени смены */
   .today-km.km-alert {
@@ -1117,12 +1148,6 @@
              placeholder="например 193" autocomplete="off" maxlength="6">
       <div id="park-result"></div>
     </div>
-    <p class="park-hint">
-      От главного въезда: левее 11-й трассы, дальше левее 9-й, потом налево
-      левее 7-й — оттуда и вправо, и влево. В трассы 1–6 заезд со стороны 7-й.<br>
-      Места — из таблицы парка от <span id="park-date">—</span>, расположение рядов
-      и зарядок — с плана. Схема упрощённая, не чертёж.
-    </p>
   </div>
 
   <!-- TODAY -->
@@ -1142,9 +1167,18 @@
           <div class="today-elapsed" id="today-elapsed">00:00</div>
           <div class="today-status" id="today-status">Ещё не начат</div>
         </div>
+        <div class="today-right">
         <div class="today-km" id="today-km" title="Километраж за смену">
           <div class="today-km-label">Пробег</div>
           <div class="today-km-value empty" id="today-km-value">+ км</div>
+        </div>
+        <div class="today-spot" title="Место автобуса на стоянке">
+          <label class="today-km-label" for="today-spot-input" id="today-spot-label">Место/борт</label>
+          <div class="today-spot-row">
+            <input type="text" id="today-spot-input" inputmode="numeric" placeholder="—" autocomplete="off" maxlength="6">
+            <button type="button" id="today-spot-go" title="Показать на схеме стоянки">→</button>
+          </div>
+        </div>
         </div>
       </div>
     </div>
@@ -1712,7 +1746,7 @@ function isAccordionDay(dateKey, s) { return busOfDay(dateKey, s) === 'accordion
 function shiftHasContent(s) {
   if (!s) return false;
   return !!(s.start || s.end || s.lunchIn || s.lunchOut ||
-            s.route || s.routeOrder || s.vahetus || s.km || s.imported ||
+            s.route || s.routeOrder || s.vahetus || s.km || s.spot || s.imported ||
             (s.plan && s.plan !== '8:00') ||
             (s.status && s.status !== 'work'));
 }
@@ -2814,6 +2848,10 @@ function renderToday() {
       kmBoxEl.classList.toggle('km-alert', !!phase);
       ['soon', 'due', 'overdue'].forEach(p => kmBoxEl.classList.toggle('km-' + p, phase === p));
     }
+    const spotIn = document.getElementById('today-spot-input');
+    if (spotIn && document.activeElement !== spotIn) spotIn.value = s.spot || '';
+    const goBtn = document.getElementById('today-spot-go');
+    if (goBtn) goBtn.disabled = !(spotIn && spotIn.value.trim());
   }
 
   // Update time inputs (only if not currently focused, to not break user typing)
@@ -3310,13 +3348,16 @@ function saveShift() {
       const km = parseFloat(kmRaw);
       if (!isNaN(km) && km > 0) data.km = Math.round(km * 100) / 100;
     }
+    // Parking spot is only edited on the today card; carry it over.
+    if (prev.spot) data.spot = prev.spot;
   }
   if (editingDate && editingDate !== newDate) {
     delete state.shifts[editingDate];
   }
   // Drop record entirely if it's the default empty 'work' status with no data
   const hasContent = (data.status !== 'work') || data.plan || data.start || data.end ||
-                     data.lunchIn || data.lunchOut || data.route || data.bus || data.km;
+                     data.lunchIn || data.lunchOut || data.route || data.bus || data.km ||
+                     data.spot;
   if (!hasContent) {
     delete state.shifts[newDate];
   } else {
@@ -3977,16 +4018,28 @@ function renderPark() {
 
   const lane = hit.lane, row = hit.row, count = row.slots.length;
   const fromEntry = lane.entry === 'right';
-  // Count from whichever end of the row is nearer: "3-е справа" is easier to
-  // count on the ground than "25-е слева". Left/right as drawn on the plan.
-  const fromLeft = hit.index + 1, fromRight = count - hit.index;
+  const widest = lane.rows.reduce((m, r) => Math.max(m, r.slots.length), 0);
+  const hasIsland = lane.island !== undefined && lane.rows.length === 2;
+  // Left/right as the driver sees them from the cab, not as drawn. In lanes
+  // with a charging island the buses nose in toward it: the top row faces
+  // down on the plan, so its driver's left is the plan's right; the bottom
+  // row faces up and matches the plan. Where the nose direction is unknown
+  // the sides are as drawn on the strip.
+  const noseDown = hasIsland ? hit.rowIndex === 0 : null;
+  const flip = noseDown === true;
+  const planLeft = hit.index + 1, planRight = count - hit.index;
+  const fromLeft = flip ? planRight : planLeft, fromRight = flip ? planLeft : planRight;
+  // Count from whichever end is nearer: "3-е справа" is easier to count on
+  // the ground than "25-е слева".
   const useRight = fromRight <= fromLeft;
   const pos = useRight ? fromRight : fromLeft;
   const side = useRight ? 'справа' : 'слева';
-  const sideNote = useRight && fromEntry ? ' (с въезда)' : (!useRight && fromEntry ? ' (с дальнего конца)' : '');
-  const left = row.slots[hit.index - 1], right = row.slots[hit.index + 1];
-  const widest = lane.rows.reduce((m, r) => Math.max(m, r.slots.length), 0);
-  const hasIsland = lane.island !== undefined && lane.rows.length === 2;
+  // Which end of the row that is on the plan: its right (east) end is the
+  // gate side for lanes entered from the right.
+  const endIsPlanRight = useRight !== flip;
+  const sideNote = fromEntry ? (endIsPlanRight ? ' (со стороны въезда)' : ' (от стенки)')
+                   : (noseDown === null ? ' (как на полосе)' : '');
+  const left = row.slots[hit.index + (flip ? 1 : -1)], right = row.slots[hit.index + (flip ? -1 : 1)];
 
   let html = '<div class="park-lane">Трасса ' + lane.n + '</div>';
   html += '<div class="park-where">' + row.label + ', <b>' + pos + '-е ' + side +
@@ -4027,11 +4080,10 @@ function renderPark() {
   if (right !== undefined) near.push('справа ' + right);
   if (near.length === 1) near.unshift('с краю ряда');
   if (near.length) html += '<div class="park-where" style="margin-top:12px;">' +
-                           near.join(', ') + ' — как на полосе выше.</div>';
+                           (noseDown === null ? 'На полосе: ' : 'По ходу водителя: ') +
+                           near.join(', ') + '.</div>';
 
   html += parkMapSvg(lane.n, hit);
-  html += '<div class="park-legend">Пунктир — проезд от въезда, точка — место. ' +
-          'Схема, не чертёж: порядок поворотов по словам владельца, трассы 8–12 не проверены.</div>';
   if (lane.warn) html += '<p class="park-warn">' + lane.warn + '</p>';
   const alt = parkFractionOf(slot);
   if (alt) html += '<div><button type="button" class="park-alt" data-slot="' + alt +
@@ -4048,7 +4100,12 @@ function switchView(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   if (name === 'stats') renderStats();
-  if (name === 'park') renderPark();
+  if (name === 'park') {
+    const inp = document.getElementById('park-input');
+    const sh = state.shifts[todayKey()];
+    if (inp && !inp.value && sh && sh.spot) inp.value = sh.spot;
+    renderPark();
+  }
 }
 
 document.querySelectorAll('.tab').forEach(t => {
@@ -4058,8 +4115,6 @@ document.querySelectorAll('.tab').forEach(t => {
 (() => {
   const inp = document.getElementById('park-input');
   if (inp) inp.addEventListener('input', renderPark);
-  const dateEl = document.getElementById('park-date');
-  if (dateEl) dateEl.textContent = PARK_TABLE_DATE;
   if (PARK_HAS_BUSES) {
     const lbl = document.getElementById('park-label');
     if (lbl) lbl.textContent = 'Номер места или номер автобуса';
@@ -4383,12 +4438,65 @@ document.getElementById('today-route-edit').addEventListener('click', (e) => {
 // Тап по блоку «Пробег» — открыть модалку ввода километража за сегодня
 document.getElementById('today-km').addEventListener('click', () => {
   const k = todayKey();
-  const cur = (state.shifts[k] && typeof state.shifts[k].km === 'number') ? state.shifts[k].km : '';
+  const sh = state.shifts[k] || {};
+  const cur = typeof sh.km === 'number' ? sh.km : '';
   const input = document.getElementById('km-input');
   input.value = cur === '' ? '' : String(cur);
   document.getElementById('modal-km').classList.add('show');
   setTimeout(() => input.focus(), 50);
 });
+
+function openParkAt(spot) {
+  const inp = document.getElementById('park-input');
+  if (inp) inp.value = spot;
+  switchView('park');
+}
+
+// The slot (or bus number, when the build has the table) typed next to the
+// mileage on the today card. Stored as typed on the day's record so the park
+// tab can pick it up. Saved on every keystroke; empty clears it. Returns
+// false (and says so) on a value that cannot be a slot number.
+function saveTodaySpot(quiet) {
+  const k = todayKey();
+  const field = document.getElementById('today-spot-input');
+  let raw = field.value.trim().toUpperCase();
+  if (/^0\d/.test(raw)) raw = raw.replace(/^0+(?=\d)/, '');
+  const goBtn = document.getElementById('today-spot-go');
+  if (goBtn) goBtn.disabled = !raw;
+  if (raw === '') {
+    if (state.shifts[k] && state.shifts[k].spot) { delete state.shifts[k].spot; save(); }
+    return true;
+  }
+  if (!/^\d{1,4}(\/\d)?E?$/.test(raw)) {
+    if (!quiet) {
+      showToast('Номер места — это цифры, например 193');
+      // Show what is actually stored, not the rejected text.
+      field.value = (state.shifts[k] && state.shifts[k].spot) || '';
+      if (goBtn) goBtn.disabled = !field.value;
+    }
+    return false;
+  }
+  if (!state.shifts[k]) state.shifts[k] = { plan: '8:00', status: 'work' };
+  if (state.shifts[k].spot !== raw) { state.shifts[k].spot = raw; save(); }
+  // On leaving the field the screen shows the stored form ("0193" -> "193").
+  if (!quiet && field.value !== raw) field.value = raw;
+  return true;
+}
+(() => {
+  const inp = document.getElementById('today-spot-input');
+  const go = document.getElementById('today-spot-go');
+  if (!inp || !go) return;
+  inp.addEventListener('input', () => saveTodaySpot(true));
+  inp.addEventListener('change', () => saveTodaySpot(false));
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); go.click(); }
+  });
+  go.addEventListener('click', () => {
+    if (!saveTodaySpot(false)) return;
+    const sh = state.shifts[todayKey()];
+    if (sh && sh.spot) openParkAt(sh.spot);
+  });
+})();
 
 function closeKmModal() {
   document.getElementById('modal-km').classList.remove('show');
