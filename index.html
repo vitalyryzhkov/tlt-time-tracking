@@ -1503,6 +1503,16 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="modal-confirm">
+  <div class="modal">
+    <p id="confirm-text" style="font-size: 15px; line-height: 1.45; margin: 4px 0 16px;"></p>
+    <div class="modal-actions">
+      <button class="btn" id="confirm-no">Отмена</button>
+      <button class="btn btn-primary" id="confirm-yes">Да</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modal-km">
   <div class="modal">
     <h3>Километраж за смену</h3>
@@ -3563,7 +3573,37 @@ function parseBackup(text) {
   return { shifts, defaultBus: bus, pensionRate: data.pensionRate, days: keys.length };
 }
 
-function importBackup(text) {
+// In-app replacement for window.confirm(): on iOS a home-screen web app can
+// swallow the native dialog (it never shows and returns false), which silently
+// cancelled restore-from-backup. Resolves true only on an explicit "Да".
+function askConfirm(message, yesLabel) {
+  return new Promise((resolve) => {
+    const back = document.getElementById('modal-confirm');
+    const yes = document.getElementById('confirm-yes');
+    const no = document.getElementById('confirm-no');
+    document.getElementById('confirm-text').textContent = message;
+    yes.textContent = yesLabel || 'Да';
+    let settled = false;
+    const finish = (v) => {
+      if (settled) return;
+      settled = true;
+      back.classList.remove('show');
+      yes.removeEventListener('click', onYes);
+      no.removeEventListener('click', onNo);
+      back.removeEventListener('click', onBack);
+      resolve(v);
+    };
+    const onYes = () => finish(true);
+    const onNo = () => finish(false);
+    const onBack = (e) => { if (e.target === back) finish(false); };
+    yes.addEventListener('click', onYes);
+    no.addEventListener('click', onNo);
+    back.addEventListener('click', onBack);
+    back.classList.add('show');
+  });
+}
+
+async function importBackup(text) {
   let parsed;
   try {
     parsed = parseBackup(text);
@@ -3572,10 +3612,9 @@ function importBackup(text) {
     return;
   }
   const have = Object.keys(state.shifts).length;
-  if (!confirm('В файле ' + parsed.days + ' дней. Заменить всё, что сейчас в приложении'
-      + (have ? ' (' + have + ' дней)' : '') + '? Это нельзя отменить.')) {
-    return;
-  }
+  const ok = await askConfirm('В файле ' + parsed.days + ' дней. Заменить всё, что сейчас в приложении'
+      + (have ? ' (' + have + ' дней)' : '') + '? Это нельзя отменить.', 'Заменить');
+  if (!ok) return;
   // На случай ошибочного восстановления откладываем текущее содержимое.
   try {
     const cur = localStorage.getItem(STORAGE_KEY);
@@ -4081,7 +4120,8 @@ document.getElementById('reset-link').addEventListener('click', () => {
   if (document.activeElement && typeof document.activeElement.blur === 'function') {
     document.activeElement.blur();
   }
-  if (confirm('Сбросить запись за сегодня?')) {
+  askConfirm('Сбросить запись за сегодня?', 'Сбросить').then((ok) => {
+    if (!ok) return;
     delete state.shifts[todayKey()];
     save();
     // Clear inputs explicitly — defence in depth in case anything else holds state
@@ -4089,7 +4129,7 @@ document.getElementById('reset-link').addEventListener('click', () => {
     renderToday();
     renderMonth();
     showToast('Сброшено');
-  }
+  });
 });
 
 // Подработка toggle
@@ -4343,7 +4383,7 @@ document.getElementById('add-shift-btn').addEventListener('click', () => {
 document.getElementById('shift-cancel').addEventListener('click', closeShiftModal);
 document.getElementById('shift-save').addEventListener('click', saveShift);
 document.getElementById('shift-delete').addEventListener('click', () => {
-  if (confirm('Удалить эту смену?')) deleteShift();
+  askConfirm('Удалить эту смену?', 'Удалить').then((ok) => { if (ok) deleteShift(); });
 });
 
 document.getElementById('paste-btn').addEventListener('click', () => {
@@ -4380,14 +4420,14 @@ document.getElementById('clear-import-btn').addEventListener('click', () => {
     showToast('Нечего очищать (нет импортированных записей)');
     return;
   }
-  if (!confirm(`Удалить ${toDelete.length} импортированных записей за ${MONTH_NAMES_RU[m]} ${y}? Подтверждённые дни не тронутся.`)) {
-    return;
-  }
-  toDelete.forEach(k => { delete state.shifts[k]; });
-  save();
-  renderMonth();
-  renderToday();
-  showToast(`Удалено: ${toDelete.length} записей`);
+  askConfirm(`Удалить ${toDelete.length} импортированных записей за ${MONTH_NAMES_RU[m]} ${y}? Подтверждённые дни не тронутся.`, 'Удалить').then((ok) => {
+    if (!ok) return;
+    toDelete.forEach(k => { delete state.shifts[k]; });
+    save();
+    renderMonth();
+    renderToday();
+    showToast(`Удалено: ${toDelete.length} записей`);
+  });
 });
 
 document.getElementById('backup-save-btn').addEventListener('click', exportBackup);
@@ -4404,8 +4444,9 @@ document.getElementById('backup-file').addEventListener('change', (e) => {
   reader.readAsText(file);
 });
 document.getElementById('clear-btn').addEventListener('click', () => {
-  if (confirm('Удалить ВСЕ данные, включая аварийные копии в этом браузере? '
-      + 'Это нельзя отменить. Если данные не читаются — сначала попробуй «Сохранить копию».')) {
+  askConfirm('Удалить ВСЕ данные, включая аварийные копии в этом браузере? '
+      + 'Это нельзя отменить. Если данные не читаются — сначала попробуй «Сохранить копию».', 'Удалить всё').then((ok) => {
+    if (!ok) return;
     state.shifts = {};
     storageReadable = true; // явная команда стереть — разрешаем запись
     // «ВСЕ данные» — значит и аварийный снимок до миграции.
@@ -4418,7 +4459,7 @@ document.getElementById('clear-btn').addEventListener('click', () => {
     renderToday();
     renderMonth();
     showToast('Очищено');
-  }
+  });
 });
 
 document.querySelectorAll('.modal-backdrop').forEach(b => {
