@@ -1008,18 +1008,30 @@
     position: fixed;
     bottom: 24px;
     left: 50%;
-    transform: translateX(-50%) translateY(80px);
+    /* Hidden state must clear the viewport for any height: a 3-line toast
+       is taller than a fixed 80px shift and used to stay peeking out. */
+    transform: translateX(-50%) translateY(calc(100% + 40px));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
     background: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text);
     padding: 12px 18px;
     border-radius: 10px;
     font-size: 14px;
-    transition: transform 0.25s ease-out;
+    max-width: calc(100vw - 32px);
+    transition: transform 0.25s ease-out, opacity 0.25s ease-out, visibility 0s linear 0.25s;
     z-index: 200;
     box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   }
-  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: transform 0.25s ease-out, opacity 0.25s ease-out, visibility 0s;
+  }
 
   .install-hint {
     background: rgba(107, 163, 214, 0.08);
@@ -3723,7 +3735,7 @@ const PARK_TABLE_DATE = '25.10.2026';
 // --- PARK DATA START (tools/build_park.py) ---
 const PARK_LANES = [
   { n: 1, note: 'P15 · P11 · P4', island: 'VA-7', entry: 'right', across: false,
-    warn: 'Нечётный ряд 1-й трассы разорван: 21–1 стоят наискось вдоль зарядки, а 29–23 — отдельной группой в углу слева. Поэтому место напротив тут не показываю, а счёт «от въезда» идёт по всему ряду, вместе с угловой четвёркой.', rows: [
+    warn: 'Нечётный ряд 1-й трассы разорван: 21–1 стоят наискось вдоль зарядки, а 29–23 — отдельной группой в углу слева. Счёт места идёт по всему ряду, вместе с угловой четвёркой.', rows: [
       { label: 'чётные', slots: ['30', '28', '26', '24', '22', '20', '18', '16', '14', '12', '10', '8', '6', '4', '2'] },
       { label: 'нечётные: 29–23 в углу, 21–1 наискось', slots: ['29', '27', '25', '23', '21', '19', '17', '15', '13', '11', '9', '7', '5', '3', '1'] },
     ] },
@@ -3748,7 +3760,7 @@ const PARK_LANES = [
       { label: 'нечётные', slots: ['269', '267', '265', '263', '261', '259', '257', '255', '253', '251', '249', '247', '245', '243', '241', '239', '237', '235', '233', '231', '229', '227', '225', '223', '221', '219', '217', '215'] },
     ] },
   { n: 7, note: 'P25 · P19 · P8 · P5', island: '',
-    warn: 'Ряды 7-й трассы очень разной длины: 13 мест против 44. Что напротив чего, взято из таблицы парка и на плане не проверено.', rows: [
+    warn: 'Ряды 7-й трассы очень разной длины: 13 мест против 44. Как они лежат друг относительно друга, взято из таблицы парка и на плане не проверено.', rows: [
       { label: 'короткий ряд, чётные', slots: ['248', '250', '252', '254', '256', '258', '260', '262', '264', '266', '268', '270', '272'] },
       { label: 'длинный ряд', slots: ['271', '273', '274', '275', '276', '277', '278', '279', '280', '281', '282', '283', '284', '285', '286', '287', '288', '289', '290', '291', '292', '293', '294', '295', '296', '297', '298', '299', '300', '301', '302', '303', '304', '305', '306', '307', '308', '309', '310', '311', '312', '313', '314', '315'] },
     ] },
@@ -3854,7 +3866,34 @@ function parkStripSvg(row, hitIndex, acrossIndex, scaleCount, noseDown) {
          '" preserveAspectRatio="none" aria-hidden="true">' + cells + '</svg>';
 }
 
-function parkMapSvg(activeLane) {
+// Driving route from the main gate to each lane, as polyline points in the
+// map's 200x150 space. The trunk goes north along the corridor between lane 12
+// and lanes 11/9, then west under lane 7; lanes 1-6 are entered from their
+// right (east) end, lane 7 from its left end. Lanes 8-12: best guess from the
+// plan, unverified with the owner.
+const PARK_ROUTE_TRUNK = [[143, 140], [143, 33]];
+function parkRouteTo(laneNo) {
+  const b = PARK_MAP[laneNo];
+  if (!b) return null;
+  // The last point sits IN units inside the lane box so the arrow head
+  // (5 units long) has room and clearly points into the lane.
+  const IN = 6;
+  const yc = b[1] + b[3] / 2, xr = b[0] + b[2], xc = b[0] + b[2] / 2;
+  if (laneNo >= 1 && laneNo <= 6) {
+    return PARK_ROUTE_TRUNK.concat([[76, 33], [76, yc], [xr - IN, yc]]);
+  }
+  switch (laneNo) {
+    case 7:  return PARK_ROUTE_TRUNK.concat([[74, 33], [74, yc], [b[0] + IN, yc]]);
+    case 8:  return [[143, 140], [143, 42], [b[0] - 2, 42], [b[0] - 2, yc]];
+    case 9:  return [[143, 140], [143, yc], [b[0] + IN, yc]];
+    case 10: return [[143, 140], [143, 42], [xc, 42], [xc, b[1] + IN]];
+    case 11: return [[143, 140], [143, yc], [b[0] + IN, yc]];
+    case 12: return [[143, 140], [143, yc], [xr - IN, yc]];
+    default: return null;
+  }
+}
+
+function parkMapSvg(activeLane, hit) {
   let out = '<svg class="park-map" viewBox="0 0 200 150" role="img" aria-label="Схема парка">';
   Object.keys(PARK_MAP).forEach(key => {
     const b = PARK_MAP[key], on = Number(key) === activeLane;
@@ -3866,12 +3905,35 @@ function parkMapSvg(activeLane) {
            ' font-weight="' + (on ? '700' : '400') + '"' +
            ' fill="' + (on ? 'var(--accent)' : 'var(--text-faint)') + '">' + key + '</text>';
   });
-  // главный въезд: чуть левее 11-й трассы и дальше на север по коридору
-  // между 12-й и 9/11 (он на схеме между x=140 и x=146)
-  out += '<path d="M143 140 L143 78" stroke="var(--text-faint)" stroke-width="1.2"' +
-         ' fill="none" stroke-dasharray="3 2"/>' +
-         '<path d="M143 74 l-3 6 h6 z" fill="var(--text-faint)"/>' +
-         '<text x="139" y="146" text-anchor="end" font-size="8" fill="var(--text-faint)">въезд</text>';
+  // Main gate: just left of lane 11, then north along the corridor between
+  // lane 12 and lanes 9/11 (x=140..146 on this map).
+  const route = activeLane ? parkRouteTo(activeLane) : null;
+  const pts = route || PARK_ROUTE_TRUNK;
+  out += '<polyline points="' + pts.map(p => p[0] + ',' + p[1]).join(' ') +
+         '" stroke="' + (route ? 'var(--accent)' : 'var(--text-faint)') +
+         '" stroke-width="1.4" fill="none" stroke-dasharray="3 2"' +
+         ' stroke-linejoin="round" stroke-linecap="round"/>';
+  // Arrow head on the last segment.
+  const a = pts[pts.length - 2], z = pts[pts.length - 1];
+  const dx = z[0] - a[0], dy = z[1] - a[1], len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  const headL = 5, headW = 3;
+  const bx = z[0] - ux * headL, by = z[1] - uy * headL;
+  out += '<path d="M' + z[0].toFixed(1) + ' ' + z[1].toFixed(1) +
+         ' L' + (bx - uy * headW).toFixed(1) + ' ' + (by + ux * headW).toFixed(1) +
+         ' L' + (bx + uy * headW).toFixed(1) + ' ' + (by - ux * headW).toFixed(1) + ' Z" fill="' +
+         (route ? 'var(--accent)' : 'var(--text-faint)') + '"/>';
+  // The slot itself: a dot inside the lane box, x by its position in the row,
+  // y by the row index (rows are stacked top to bottom as in the strips).
+  if (hit && PARK_MAP[hit.lane.n]) {
+    const b = PARK_MAP[hit.lane.n];
+    const widest = hit.lane.rows.reduce((m, r) => Math.max(m, r.slots.length), 0);
+    const rows = hit.lane.rows.length;
+    const cx = b[0] + 2 + (b[2] - 4) * ((hit.index + 0.5) / widest);
+    const cy = b[1] + b[3] * ((hit.rowIndex + 0.5) / rows);
+    out += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="2.6" fill="var(--accent)" stroke="var(--bg)" stroke-width="0.8"/>';
+  }
+  out += '<text x="139" y="146" text-anchor="end" font-size="8" fill="var(--text-faint)">въезд</text>';
   return out + '</svg>';
 }
 
@@ -3915,18 +3977,20 @@ function renderPark() {
 
   const lane = hit.lane, row = hit.row, count = row.slots.length;
   const fromEntry = lane.entry === 'right';
-  const pos = fromEntry ? count - hit.index : hit.index + 1;
+  // Count from whichever end of the row is nearer: "3-е справа" is easier to
+  // count on the ground than "25-е слева". Left/right as drawn on the plan.
+  const fromLeft = hit.index + 1, fromRight = count - hit.index;
+  const useRight = fromRight <= fromLeft;
+  const pos = useRight ? fromRight : fromLeft;
+  const side = useRight ? 'справа' : 'слева';
+  const sideNote = useRight && fromEntry ? ' (с въезда)' : (!useRight && fromEntry ? ' (с дальнего конца)' : '');
   const left = row.slots[hit.index - 1], right = row.slots[hit.index + 1];
-  const other = lane.across === false || lane.rows.length !== 2
-                ? null : lane.rows[1 - hit.rowIndex];
-  const across = other && hit.index < other.slots.length ? other.slots[hit.index] : null;
   const widest = lane.rows.reduce((m, r) => Math.max(m, r.slots.length), 0);
   const hasIsland = lane.island !== undefined && lane.rows.length === 2;
 
   let html = '<div class="park-lane">Трасса ' + lane.n + '</div>';
-  html += '<div class="park-where">' + row.label + ', <b>' + pos +
-          (fromEntry ? '-е от въезда' : '-е в ряду') + '</b> из ' + count +
-          ' · ' + lane.note + '</div>';
+  html += '<div class="park-where">' + row.label + ', <b>' + pos + '-е ' + side +
+          '</b>' + sideNote + ' из ' + count + ' · ' + lane.note + '</div>';
   if (byBus) {
     html += '<div class="park-bus">Борт ' + byBus +
             (byBus === raw ? '' : ' (на кузове ' + raw + ')') +
@@ -3947,8 +4011,7 @@ function renderPark() {
     html += '<div class="park-row"><div class="park-row-head">' +
             '<span' + (mine ? ' class="on"' : '') + '>' + r.label + '</span>' +
             '<span>' + r.slots[0] + ' … ' + r.slots[r.slots.length - 1] + '</span></div>' +
-            parkStripSvg(r, mine ? hit.index : -1,
-                         !mine && across != null ? hit.index : -1,
+            parkStripSvg(r, mine ? hit.index : -1, -1,
                          widest, hasIsland ? i === 0 : null) + '</div>';
   });
   html += '</div>';
@@ -3963,11 +4026,12 @@ function renderPark() {
   if (left !== undefined) near.push('слева ' + left);
   if (right !== undefined) near.push('справа ' + right);
   if (near.length === 1) near.unshift('с краю ряда');
-  if (across != null) near.push('напротив ' + across);
   if (near.length) html += '<div class="park-where" style="margin-top:12px;">' +
                            near.join(', ') + ' — как на полосе выше.</div>';
 
-  html += parkMapSvg(lane.n);
+  html += parkMapSvg(lane.n, hit);
+  html += '<div class="park-legend">Пунктир — проезд от въезда, точка — место. ' +
+          'Схема, не чертёж: порядок поворотов по словам владельца, трассы 8–12 не проверены.</div>';
   if (lane.warn) html += '<p class="park-warn">' + lane.warn + '</p>';
   const alt = parkFractionOf(slot);
   if (alt) html += '<div><button type="button" class="park-alt" data-slot="' + alt +
