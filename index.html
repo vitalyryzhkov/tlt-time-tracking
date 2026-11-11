@@ -4435,13 +4435,26 @@ document.getElementById('backup-load-btn').addEventListener('click', () => {
   document.getElementById('backup-file').click();
 });
 document.getElementById('backup-file').addEventListener('change', (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = ''; // чтобы повторный выбор того же файла тоже сработал
-  if (!file) return;
+  const input = e.target;
+  const file = input.files && input.files[0];
+  if (!file) { showToast('Файл не выбран', 2000, true); return; }
+  // Reset the input only after the read finishes: on iOS, clearing it right
+  // away can invalidate the File object and the read silently fails.
+  const reset = () => { try { input.value = ''; } catch (_) {} };
+  showToast('Читаю копию…', 1500, true);
   const reader = new FileReader();
-  reader.onload = () => importBackup(String(reader.result || ''));
-  reader.onerror = () => showToast('Не удалось прочитать файл', 2600, true);
-  reader.readAsText(file);
+  reader.onload = () => { reset(); importBackup(String(reader.result || '')); };
+  reader.onerror = () => {
+    reset();
+    const err = reader.error;
+    showToast('Не удалось прочитать файл' + (err && err.name ? ' (' + err.name + ')' : ''), 3500, true);
+  };
+  try {
+    reader.readAsText(file);
+  } catch (err) {
+    reset();
+    showToast('Не удалось открыть файл (' + (err && err.name ? err.name : 'ошибка') + ')', 3500, true);
+  }
 });
 document.getElementById('clear-btn').addEventListener('click', () => {
   askConfirm('Удалить ВСЕ данные, включая аварийные копии в этом браузере? '
