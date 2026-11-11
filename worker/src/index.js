@@ -36,10 +36,11 @@ export async function handle(request, env, forward, deps = {}) {
   const now = deps.now || (() => Date.now());
   const url = new URL(request.url);
 
-  const email = await identify(request, env, deps);
-  if (!email) {
-    return htmlResponse(403, PAGE_NO_EMAIL);
+  const who = await identify(request, env, deps);
+  if (!who.email) {
+    return htmlResponse(403, pageNoEmail(who.reason));
   }
+  const email = who.email;
 
   if (url.pathname === '/admin/reset' || url.pathname === '/admin/list') {
     if (!isAdmin(email, env)) {
@@ -85,41 +86,51 @@ export async function handle(request, env, forward, deps = {}) {
 // ---------------------------------------------------------------------------
 // Identity: who is making this request, according to Cloudflare Access.
 
+// Returns {email} or {email: null, reason}. The reason is a short code shown
+// on the 403 page so the owner can tell a missing variable from a bad one
+// without reading logs; it never includes the token or variable values.
 async function identify(request, env, deps) {
   const token =
     request.headers.get('Cf-Access-Jwt-Assertion') ||
     readCookie(request.headers.get('Cookie'), 'CF_Authorization');
-  if (!token || !env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return null;
+  if (!token) return { email: null, reason: 'no-token' };
+  if (!env.ACCESS_TEAM_DOMAIN) return { email: null, reason: 'no-team-domain' };
+  if (!env.ACCESS_AUD) return { email: null, reason: 'no-aud' };
 
-  const payload = await verifyAccessJwt(token, env, deps);
-  if (!payload || typeof payload.email !== 'string') return null;
-  return normalizeEmail(payload.email);
+  const result = await verifyAccessJwt(token, env, deps);
+  if (!result.payload) return { email: null, reason: result.reason };
+  if (typeof result.payload.email !== 'string') return { email: null, reason: 'no-email-claim' };
+  return { email: normalizeEmail(result.payload.email) };
 }
 
-/** Verifies the Access JWT (RS256) against the team's JWKS. Returns payload or null. */
+/**
+ * Verifies the Access JWT (RS256) against the team's JWKS.
+ * Returns {payload} on success, {payload: null, reason} otherwise.
+ */
 export async function verifyAccessJwt(token, env, deps = {}) {
+  const fail = (reason) => ({ payload: null, reason });
   const parts = token.split('.');
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3) return fail('bad-token');
   let header;
   let payload;
   try {
     header = JSON.parse(b64urlDecodeToString(parts[0]));
     payload = JSON.parse(b64urlDecodeToString(parts[1]));
   } catch {
-    return null;
+    return fail('bad-token');
   }
-  if (header.alg !== 'RS256' || !header.kid) return null;
+  if (header.alg !== 'RS256' || !header.kid) return fail('bad-token');
 
   const issuer = `https://${env.ACCESS_TEAM_DOMAIN}.cloudflareaccess.com`;
   const nowSec = Math.floor((deps.now ? deps.now() : Date.now()) / 1000);
   const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (payload.iss !== issuer) return null;
-  if (!aud.includes(env.ACCESS_AUD)) return null;
-  if (typeof payload.exp !== 'number' || payload.exp <= nowSec) return null;
-  if (typeof payload.nbf === 'number' && payload.nbf > nowSec + 60) return null;
+  if (payload.iss !== issuer) return fail('team-domain-mismatch');
+  if (!aud.includes(env.ACCESS_AUD)) return fail('aud-mismatch');
+  if (typeof payload.exp !== 'number' || payload.exp <= nowSec) return fail('expired');
+  if (typeof payload.nbf === 'number' && payload.nbf > nowSec + 60) return fail('not-yet-valid');
 
   const key = await getAccessKey(issuer, header.kid, deps);
-  if (!key) return null;
+  if (!key) return fail('jwks');
 
   const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
   const signature = b64urlDecodeToBytes(parts[2]);
@@ -129,7 +140,7 @@ export async function verifyAccessJwt(token, env, deps = {}) {
   } catch {
     ok = false;
   }
-  return ok ? payload : null;
+  return ok ? { payload } : fail('bad-signature');
 }
 
 async function getAccessKey(issuer, kid, deps) {
@@ -352,8 +363,11 @@ const PAGE_OTHER_DEVICE = simplePage(
   'Вход с этого устройства закрыт',
   'Этот адрес уже привязан к другому устройству. Доступ разрешён только с одного устройства.',
 );
-const PAGE_NO_EMAIL = simplePage(
-  'Нет входа',
-  'Не удалось определить, кто вы. Откройте сайт заново и войдите по коду из письма.',
-);
+function pageNoEmail(reason) {
+  return simplePage(
+    'Нет входа',
+    'Не удалось определить, кто вы. Откройте сайт заново и войдите по коду из письма. '
+      + 'Код: ' + (reason || 'unknown') + '.',
+  );
+}
 const PAGE_NOT_FOUND = simplePage('Страница не найдена', 'Такой страницы нет.');

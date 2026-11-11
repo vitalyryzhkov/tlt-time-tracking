@@ -271,6 +271,21 @@ test('forged or stale JWT is rejected', async () => {
   assert.equal(kv.store.size, 0);
 });
 
+test('403 page names the reason without leaking values', async () => {
+  const codeOf = async (res) => (await res.text()).match(/Код: ([a-z-]+)\./)[1];
+  assert.equal(await codeOf(await visit({})), 'no-token');
+  assert.equal(await codeOf(await visit({ token: await accessToken('x@example.com', { aud: ['someone-else'] }) })), 'aud-mismatch');
+  assert.equal(await codeOf(await visit({ token: await accessToken('x@example.com', { iss: 'https://evil.cloudflareaccess.com' }) })), 'team-domain-mismatch');
+  assert.equal(await codeOf(await visit({ token: await accessToken('x@example.com', { exp: Math.floor(Date.now() / 1000) - 10 }) })), 'expired');
+  const noAud = await handle(new Request('https://tlt.example.com/', { headers: { 'Cf-Access-Jwt-Assertion': await accessToken('x@example.com') } }), { ...env, ACCESS_AUD: '' }, forward, deps);
+  assert.equal(await codeOf(noAud), 'no-aud');
+  const body = await (await visit({ token: await accessToken('x@example.com', { aud: ['someone-else'] }) })).text();
+  assert.ok(!body.includes(AUD) && !body.includes(TEAM));
+
+  assert.equal(forwarded.length, 0);
+  assert.equal(kv.store.size, 0);
+});
+
 test('DEVICE_LIMIT=2 lets a second device in and blocks the third', async () => {
   env.DEVICE_LIMIT = '2';
   const a = await visit({ email: 'driver@example.com', ua: 'A' });
